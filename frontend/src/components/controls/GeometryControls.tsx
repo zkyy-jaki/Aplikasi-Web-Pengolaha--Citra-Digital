@@ -20,10 +20,61 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
 }) => {
   if (activeOp === 'mirror') {
     const p = params as MirrorParams;
-    const directions: { dir: MirrorDirection; label: string; icon: React.ReactNode }[] = [
-      { dir: 'horizontal', label: 'Horizontal Flip', icon: <FlipHorizontal className="w-4 h-4" /> },
-      { dir: 'vertical', label: 'Vertical Flip', icon: <FlipVertical className="w-4 h-4" /> },
-      { dir: 'both', label: 'Both Axes', icon: <Move className="w-4 h-4" /> },
+    const currentDir = p.direction ?? 'none';
+
+    // State derivation from currentDir (Option A: Accumulative Toggle Model)
+    const isHorizActive = currentDir === 'horizontal' || currentDir === 'both';
+    const isVertActive = currentDir === 'vertical' || currentDir === 'both';
+
+    const getDirectionFromAxes = (horiz: boolean, vert: boolean): MirrorDirection => {
+      if (horiz && vert) return 'both';
+      if (horiz) return 'horizontal';
+      if (vert) return 'vertical';
+      return 'none';
+    };
+
+    const handleToggle = (type: 'horizontal' | 'vertical' | 'both') => {
+      let nextHoriz = isHorizActive;
+      let nextVert = isVertActive;
+
+      if (type === 'horizontal') {
+        nextHoriz = !isHorizActive;
+      } else if (type === 'vertical') {
+        nextVert = !isVertActive;
+      } else if (type === 'both') {
+        nextHoriz = !isHorizActive;
+        nextVert = !isVertActive;
+      }
+
+      onChange({ direction: getDirectionFromAxes(nextHoriz, nextVert) });
+    };
+
+    const isBothActive = isHorizActive && isVertActive;
+
+    const directions: {
+      type: 'horizontal' | 'vertical' | 'both';
+      label: string;
+      isActive: boolean;
+      icon: React.ReactNode;
+    }[] = [
+      {
+        type: 'horizontal',
+        label: 'Horizontal Flip',
+        isActive: isHorizActive,
+        icon: <FlipHorizontal className="w-4 h-4" />,
+      },
+      {
+        type: 'vertical',
+        label: 'Vertical Flip',
+        isActive: isVertActive,
+        icon: <FlipVertical className="w-4 h-4" />,
+      },
+      {
+        type: 'both',
+        label: 'Both Axes',
+        isActive: isBothActive,
+        icon: <Move className="w-4 h-4" />,
+      },
     ];
 
     return (
@@ -33,19 +84,24 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
             Mirror Direction
           </label>
           <div className="grid grid-cols-1 gap-1.5">
-            {directions.map(({ dir, label, icon }) => (
+            {directions.map(({ type, label, isActive, icon }) => (
               <button
-                key={dir}
+                key={type}
                 type="button"
-                onClick={() => onChange({ direction: dir })}
+                onClick={() => handleToggle(type)}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-xs transition border cursor-pointer ${
-                  p.direction === dir
+                  isActive
                     ? 'bg-accent text-white border-accent font-semibold shadow-xs'
                     : 'bg-white text-mutedText border-panelBorder hover:text-textPrimary hover:bg-subtleBg'
                 }`}
               >
                 {icon}
                 <span>{label}</span>
+                {isActive && (
+                  <span className="ml-auto text-[10px] font-mono bg-white/20 px-1.5 py-0.2 rounded-xs">
+                    ACTIVE
+                  </span>
+                )}
               </button>
             ))}
           </div>

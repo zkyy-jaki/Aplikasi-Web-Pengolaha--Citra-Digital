@@ -121,7 +121,7 @@ class SketchParams(BaseModel):
 
 
 class MirrorParams(BaseModel):
-    direction: str = Field("horizontal", pattern="^(horizontal|vertical|both)$")
+    direction: str = Field("none", pattern="^(none|horizontal|vertical|both)$")
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +184,9 @@ def _dispatch_sharpen(image: Any, **params: Any) -> Any:
 
 
 def _dispatch_mirror(image: Any, **params: Any) -> Any:
-    direction = params.get("direction", "horizontal")
+    direction = params.get("direction", "none")
+    if direction == "none":
+        return image.copy()
     dispatch = {
         "horizontal": ops_geometry.mirror_horizontal,
         "vertical": ops_geometry.mirror_vertical,

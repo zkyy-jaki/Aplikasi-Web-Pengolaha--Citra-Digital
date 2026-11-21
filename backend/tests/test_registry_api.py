@@ -2,12 +2,13 @@
 
 import io
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.exceptions import InvalidParamsError, OperationNotFoundError
 from app.services.registry import execute_operation, get_registry, resolve
-from tests.conftest import bgr_to_png_bytes, make_rgb
+from tests.conftest import bgr_to_png_bytes, make_rgb, make_rgba
 
 
 class TestRegistry:
@@ -42,6 +43,18 @@ class TestRegistry:
     def test_mirror_horizontal(self):
         img = make_rgb()
         out = execute_operation("mirror", img, {"direction": "horizontal"})
+        assert out.shape == img.shape
+
+    def test_mirror_none_returns_identity(self):
+        img = make_rgb()
+        out = execute_operation("mirror", img, {"direction": "none"})
+        assert np.array_equal(out, img)
+        assert out is not img  # must be a copy
+
+    def test_mirror_none_with_alpha_channel(self):
+        img = make_rgba()
+        out = execute_operation("mirror", img, {"direction": "none"})
+        assert np.array_equal(out, img)
         assert out.shape == img.shape
 
     def test_canny_low_gt_high_via_registry(self):
