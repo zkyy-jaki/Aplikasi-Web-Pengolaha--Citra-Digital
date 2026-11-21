@@ -132,7 +132,7 @@ export interface SketchParams {
   kernel_size: number; // 3..51 odd
 }
 
-export type MirrorDirection = 'horizontal' | 'vertical' | 'both';
+export type MirrorDirection = 'none' | 'horizontal' | 'vertical' | 'both';
 export interface MirrorParams {
   direction: MirrorDirection;
 }

@@ -154,7 +154,7 @@ export const DEFAULT_PARAMS: { [K in OperationType]: OperationParamsMap[K] } = {
   edge_laplacian: { pre_gaussian: false },
   edge_canny: { low_threshold: 50, high_threshold: 150 },
   sketch: { kernel_size: 21 },
-  mirror: { direction: 'horizontal' },
+  mirror: { direction: 'none' },
 };
 
 export const MATRIX_PRESETS: { name: string; params: Filter2DParams }[] = [
