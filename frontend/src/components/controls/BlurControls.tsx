@@ -1,0 +1,323 @@
+import React from 'react';
+import {
+  OperationType,
+  AnyOperationParams,
+  GaussianBlurParams,
+  AveragingBlurParams,
+  MedianBlurParams,
+  BilateralBlurParams,
+  Filter2DParams,
+} from '@/types/operations';
+import { MATRIX_PRESETS } from '@/constants/operations';
+
+interface BlurControlsProps {
+  activeOp: OperationType;
+  params: AnyOperationParams;
+  onChange: (params: Partial<AnyOperationParams>) => void;
+}
+
+export const BlurControls: React.FC<BlurControlsProps> = ({
+  activeOp,
+  params,
+  onChange,
+}) => {
+  if (activeOp === 'blur_gaussian') {
+    const p = params as GaussianBlurParams;
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
+              Kernel Size (Ganjil)
+            </label>
+            <span className="font-mono text-xs text-white bg-subtleBg px-2 py-0.5 rounded border border-panelBorder">
+              {p.kernel_size}×{p.kernel_size}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={3}
+            max={31}
+            step={2}
+            value={p.kernel_size}
+            onChange={(e) => onChange({ kernel_size: parseInt(e.target.value, 10) })}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
+              Sigma (σ)
+            </label>
+            <span className="font-mono text-xs text-white bg-subtleBg px-2 py-0.5 rounded border border-panelBorder">
+              {p.sigma === 0 ? '0 (Auto)' : p.sigma.toFixed(1)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={10.0}
+            step={0.2}
+            value={p.sigma}
+            onChange={(e) => onChange({ sigma: parseFloat(e.target.value) })}
+            className="w-full"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (activeOp === 'blur_averaging') {
+    const p = params as AveragingBlurParams;
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
+              Kernel Box Size
+            </label>
+            <span className="font-mono text-xs text-white bg-subtleBg px-2 py-0.5 rounded border border-panelBorder">
+              {p.kernel_size}×{p.kernel_size}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={3}
+            max={31}
+            step={2}
+            value={p.kernel_size}
+            onChange={(e) => onChange({ kernel_size: parseInt(e.target.value, 10) })}
+            className="w-full"
+          />
+        </div>
+        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/50 border border-panelBorder p-2.5 rounded">
+          Konvolusi kotak seragam (box filter) di mana setiap elemen bernilai 1/(k×k).
+        </p>
+      </div>
+    );
+  }
+
+  if (activeOp === 'blur_median') {
+    const p = params as MedianBlurParams;
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
+              Aperture Size
+            </label>
+            <span className="font-mono text-xs text-white bg-subtleBg px-2 py-0.5 rounded border border-panelBorder">
+              {p.kernel_size}×{p.kernel_size}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={3}
+            max={31}
+            step={2}
+            value={p.kernel_size}
+            onChange={(e) => onChange({ kernel_size: parseInt(e.target.value, 10) })}
+            className="w-full"
+          />
+        </div>
+        <div className="bg-subtleBg/60 border border-panelBorder p-2.5 rounded text-[11px] text-mutedText leading-relaxed">
+          <span className="text-emerald-400 font-medium">Spesialis Salt-and-Pepper:</span> Filter non-linear ini menukar nilai pusat dengan median tetangga sehingga derau ekstrem lenyap tanpa mengaburkan tepi objek.
+        </div>
+      </div>
+    );
+  }
+
+  if (activeOp === 'blur_bilateral') {
+    const p = params as BilateralBlurParams;
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs text-mutedText">Diameter Piksel (d)</label>
+            <span className="font-mono text-xs text-white">{p.diameter}</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={15}
+            value={p.diameter}
+            onChange={(e) => onChange({ diameter: parseInt(e.target.value, 10) })}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs text-mutedText">Sigma Color (σc)</label>
+            <span className="font-mono text-xs text-white">{p.sigma_color}</span>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={150}
+            step={5}
+            value={p.sigma_color}
+            onChange={(e) => onChange({ sigma_color: parseFloat(e.target.value) })}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-xs text-mutedText">Sigma Space (σs)</label>
+            <span className="font-mono text-xs text-white">{p.sigma_space}</span>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={150}
+            step={5}
+            value={p.sigma_space}
+            onChange={(e) => onChange({ sigma_space: parseFloat(e.target.value) })}
+            className="w-full"
+          />
+        </div>
+
+        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/50 border border-panelBorder p-2 rounded">
+          Edge-Preserving Filter: Menimbang selisih spasial sekaligus kedekatan intensitas warna.
+        </p>
+      </div>
+    );
+  }
+
+  if (activeOp === 'blur_filter2d') {
+    const p = params as Filter2DParams;
+    const size = p.kernel.length;
+    const sum = p.kernel.flat().reduce((a, b) => a + b, 0);
+    const hasZeroSumError = p.auto_normalize && sum === 0;
+
+    const handleSizeToggle = (newSize: 3 | 5) => {
+      if (newSize === 3) {
+        onChange({
+          kernel: [
+            [1, 2, 1],
+            [2, 4, 2],
+            [1, 2, 1],
+          ],
+        });
+      } else {
+        onChange({
+          kernel: [
+            [1, 1, 1, 1, 1],
+            [1, 2, 2, 2, 1],
+            [1, 2, 4, 2, 1],
+            [1, 2, 2, 2, 1],
+            [1, 1, 1, 1, 1],
+          ],
+        });
+      }
+    };
+
+    const handleCellChange = (r: number, c: number, val: string) => {
+      const num = parseFloat(val);
+      const newKernel = p.kernel.map((row, ri) =>
+        row.map((colVal, ci) => (ri === r && ci === c ? (isNaN(num) ? 0 : num) : colVal))
+      );
+      onChange({ kernel: newKernel });
+    };
+
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
+            Ukuran Matriks
+          </label>
+          <div className="flex gap-1 bg-subtleBg p-0.5 rounded border border-panelBorder">
+            <button
+              type="button"
+              onClick={() => handleSizeToggle(3)}
+              className={`px-2 py-0.5 text-xs rounded transition ${
+                size === 3 ? 'bg-accent text-white' : 'text-mutedText hover:text-white'
+              }`}
+            >
+              3×3
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSizeToggle(5)}
+              className={`px-2 py-0.5 text-xs rounded transition ${
+                size === 5 ? 'bg-accent text-white' : 'text-mutedText hover:text-white'
+              }`}
+            >
+              5×5
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-mutedText block mb-1">Preset Kernel</label>
+          <select
+            onChange={(e) => {
+              const preset = MATRIX_PRESETS.find((pr) => pr.name === e.target.value);
+              if (preset) {
+                onChange({ kernel: preset.params.kernel, auto_normalize: preset.params.auto_normalize });
+              }
+            }}
+            className="w-full bg-subtleBg border border-panelBorder text-xs rounded px-2 py-1.5 text-white"
+          >
+            <option value="">Pilih Preset...</option>
+            {MATRIX_PRESETS.map((pr) => (
+              <option key={pr.name} value={pr.name}>
+                {pr.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Matrix Grid */}
+        <div>
+          <label className="text-xs text-mutedText block mb-1">Bobot Kernel (Float / Int)</label>
+          <div
+            className="grid gap-1 bg-subtleBg p-2 rounded border border-panelBorder"
+            style={{
+              gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
+            }}
+          >
+            {p.kernel.map((row, r) =>
+              row.map((val, c) => (
+                <input
+                  key={`${r}-${c}`}
+                  type="number"
+                  step="any"
+                  value={val}
+                  onChange={(e) => handleCellChange(r, c, e.target.value)}
+                  className="w-full bg-[#181A1F] border border-panelBorder text-center font-mono text-xs py-1 rounded text-white focus:outline-none focus:border-accent"
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Normalization & Sum */}
+        <div className="flex items-center justify-between pt-1">
+          <label className="flex items-center gap-2 text-xs text-white cursor-pointer">
+            <input
+              type="checkbox"
+              checked={p.auto_normalize}
+              onChange={(e) => onChange({ auto_normalize: e.target.checked })}
+              className="rounded bg-subtleBg border-panelBorder text-accent focus:ring-0"
+            />
+            Auto-Normalize
+          </label>
+          <span className="text-[11px] font-mono text-mutedText">
+            Total Bobot: <span className="text-white font-medium">{sum}</span>
+          </span>
+        </div>
+
+        {hasZeroSumError && (
+          <div className="p-2 rounded bg-rose-950/50 border border-rose-800 text-[11px] text-rose-300">
+            Peringatan: Jumlah bobot matriks adalah 0 dengan Auto-Normalize aktif. Nonaktifkan Auto-Normalize atau ubah bobot matriks.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+};
