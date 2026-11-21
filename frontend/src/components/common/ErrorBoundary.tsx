@@ -21,28 +21,28 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('Uncaught application error:', error, errorInfo);
   }
 
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen flex items-center justify-center bg-canvas p-6">
-          <div className="bg-panel border border-panelBorder p-6 rounded-lg max-w-md w-full space-y-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-rose-950/50 border border-rose-800 flex items-center justify-center mx-auto text-rose-400">
+        <div className="h-screen w-screen flex items-center justify-center bg-canvas dot-grid-bg p-6">
+          <div className="bg-panel border border-panelBorder p-6 rounded-sm max-w-md w-full space-y-4 text-center shadow-lg">
+            <div className="w-12 h-12 rounded-full bg-rose-100 border border-rose-300 flex items-center justify-center mx-auto text-rose-600">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h1 className="text-base font-bold text-white">Terjadi Kesalahan Aplikasi</h1>
-            <p className="text-xs text-mutedText font-mono bg-subtleBg p-3 rounded text-left overflow-auto max-h-32">
+            <h1 className="text-base font-bold text-textPrimary">An Unexpected Error Occurred</h1>
+            <p className="text-xs text-mutedText font-mono bg-white border border-panelBorder p-3 rounded-sm text-left overflow-auto max-h-32">
               {this.state.error?.message || 'Unknown runtime error'}
             </p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded transition"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-sm transition shadow-xs cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              Muat Ulang Halaman
+              Reload Application
             </button>
           </div>
         </div>

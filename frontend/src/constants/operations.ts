@@ -24,31 +24,31 @@ export const OPERATIONS: OperationMeta[] = [
     id: 'grayscale',
     label: 'Grayscale',
     category: 'TONE & COLOR',
-    description: 'Konversi citra berwarna menjadi skala keabuan (Luminance, Average, Lightness)',
+    description: 'Convert color image to grayscale (Luminance, Average, Lightness)',
   },
   {
     id: 'brightness',
     label: 'Brightness',
     category: 'TONE & COLOR',
-    description: 'Penyesuaian tingkat kecerahan linear dengan anti-overflow clamping',
+    description: 'Adjust linear brightness level with safe clamping',
   },
   {
     id: 'negative',
     label: 'Negative',
     category: 'TONE & COLOR',
-    description: 'Inversi intensitas piksel (255 - I) dengan preservasi kanal Alpha',
+    description: 'Invert pixel intensities (255 - I) preserving Alpha transparency',
   },
   {
     id: 'threshold',
     label: 'Thresholding',
     category: 'TONE & COLOR',
-    description: 'Segmentasi biner/ambang batas (Binary, Inverse, Truncate, To Zero, Otsu)',
+    description: 'Binary segmentation (Binary, Inverse, Truncate, To Zero, Otsu)',
   },
   {
     id: 'equalize',
     label: 'Equalization',
     category: 'TONE & COLOR',
-    description: 'Histogram Equalization (YCrCb luminance-only atau CLAHE)',
+    description: 'Histogram equalization (Global YCrCb or Adaptive CLAHE)',
   },
 
   // BLUR FILTERS
@@ -56,31 +56,31 @@ export const OPERATIONS: OperationMeta[] = [
     id: 'blur_gaussian',
     label: 'Gaussian Blur',
     category: 'BLUR FILTERS',
-    description: 'Reduksi derau alami dengan pembobotan kurva lonceng Gaussian',
+    description: 'Smooth noise using a 2D Gaussian bell curve kernel',
   },
   {
     id: 'blur_averaging',
     label: 'Averaging Blur',
     category: 'BLUR FILTERS',
-    description: 'Filter kotak rata-rata aritmetika piksel tetangga',
+    description: 'Uniform box filter computing arithmetic mean of neighboring pixels',
   },
   {
     id: 'blur_median',
     label: 'Median Blur',
     category: 'BLUR FILTERS',
-    description: 'Pembersih salt-and-pepper noise terbaik tanpa merusak ketajaman garis tepi',
+    description: 'Non-linear filter removing salt-and-pepper noise while preserving edges',
   },
   {
     id: 'blur_bilateral',
     label: 'Bilateral Filter',
     category: 'BLUR FILTERS',
-    description: 'Edge-preserving smoothing: menghaluskan permukaan namun menjaga batas tepi',
+    description: 'Edge-preserving smoothing considering spatial distance and color range',
   },
   {
     id: 'blur_filter2d',
     label: 'Standard Filter 2D',
     category: 'BLUR FILTERS',
-    description: 'Konvolusi spasial umum dengan matriks kernel 3×3 atau 5×5 kustom',
+    description: 'Custom 3×3 or 5×5 spatial convolution matrix with auto-normalization',
   },
 
   // DETAIL & EDGE
@@ -88,37 +88,37 @@ export const OPERATIONS: OperationMeta[] = [
     id: 'sharpen',
     label: 'Sharpening',
     category: 'DETAIL & EDGE',
-    description: 'Penajaman tepi dengan Kernel Standard, Strong, atau Unsharp Masking',
+    description: 'Enhance high-frequency details (Standard, Strong, Unsharp Mask)',
   },
   {
     id: 'edge_sobel',
     label: 'Sobel Operator',
     category: 'DETAIL & EDGE',
-    description: 'Deteksi gradien arah horizontal (Gx), vertikal (Gy), atau kombinasi',
+    description: 'First-order gradient edge detection (Gx, Gy, or Magnitude)',
   },
   {
     id: 'edge_prewitt',
     label: 'Prewitt Operator',
     category: 'DETAIL & EDGE',
-    description: 'Deteksi tepi menggunakan kernel diferensial seragam ±1',
+    description: 'Differential edge detection with uniform ±1 kernels',
   },
   {
     id: 'edge_laplacian',
     label: 'Laplacian',
     category: 'DETAIL & EDGE',
-    description: 'Turunan kedua untuk mendeteksi diskontinuitas ke segala arah (LoG opsional)',
+    description: 'Second-order isotropic derivative with optional Gaussian pre-filter',
   },
   {
     id: 'edge_canny',
     label: 'Canny Detector',
     category: 'DETAIL & EDGE',
-    description: 'Deteksi tepi optimal multi-tahap dengan hysteresis thresholding',
+    description: 'Multi-stage optimal edge detector with hysteresis thresholding',
   },
   {
     id: 'sketch',
     label: 'Pencil Sketch',
     category: 'DETAIL & EDGE',
-    description: 'Efek sketsa arsir pensil hitam-putih via Color Dodge blend guard',
+    description: 'Pencil drawing effect via inverted Gaussian blur Color Dodge blend',
   },
 
   // GEOMETRY
@@ -126,7 +126,7 @@ export const OPERATIONS: OperationMeta[] = [
     id: 'mirror',
     label: 'Mirroring',
     category: 'GEOMETRY',
-    description: 'Pencerminan koordinat piksel horizontal, vertikal, atau kedua sumbu',
+    description: 'Geometric coordinate flip along horizontal, vertical, or both axes',
   },
 ];
 

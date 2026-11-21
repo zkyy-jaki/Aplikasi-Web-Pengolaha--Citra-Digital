@@ -28,6 +28,7 @@ interface RightInspectorProps {
   historyIndex: number;
   otsuCalculatedT: number | null;
   isProcessing: boolean;
+  hasImage: boolean;
   onUpdateParams: (params: Partial<AnyOperationParams>) => void;
   onApply: () => void;
   onCancel: () => void;
@@ -42,6 +43,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   historyIndex,
   otsuCalculatedT,
   isProcessing,
+  hasImage,
   onUpdateParams,
   onApply,
   onCancel,
@@ -55,7 +57,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
   // Prepare chart data (256 bins)
   const chartData = React.useMemo(() => {
-    if (!activeHist || !activeHist.channels || activeHist.channels.length === 0) {
+    if (!hasImage || !activeHist || !activeHist.channels || activeHist.channels.length === 0) {
       return [];
     }
 
@@ -76,7 +78,6 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
           blue: blueVals[i] || 0,
         });
       } else {
-        // Gray / Luma fallback
         const gVal =
           grayVals?.[i] ??
           (redVals && greenVals && blueVals
@@ -89,11 +90,11 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
       }
     }
     return data;
-  }, [activeHist, histMode]);
+  }, [hasImage, activeHist, histMode]);
 
   // Export Histogram chart as PNG
   const handleDownloadHistogramPng = () => {
-    if (!chartRef.current) return;
+    if (!hasImage || !chartRef.current) return;
     const svgElem = chartRef.current.querySelector('svg');
     if (!svgElem) return;
 
@@ -109,7 +110,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
     const img = new Image();
     img.setAttribute('src', 'data:image/svg+xml;base64,' + btoa(svgData));
     img.onload = () => {
-      ctx.fillStyle = '#181A1F';
+      ctx.fillStyle = '#FFF8FA';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       const pngUrl = canvas.toDataURL('image/png');
@@ -127,49 +128,53 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
       {/* ------------------------------------------------------------------- */}
       <div className="p-3.5 border-b border-panelBorder space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-textPrimary uppercase tracking-wider">
             <BarChart3 className="w-3.5 h-3.5 text-accent" />
             <span>Histogram</span>
           </div>
 
           {/* Toggle buttons */}
           <div className="flex items-center gap-1">
-            <div className="flex bg-subtleBg p-0.5 rounded border border-panelBorder text-[10px] font-mono">
+            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] font-mono ${!hasImage ? 'opacity-40 pointer-events-none' : ''}`}>
               <button
                 type="button"
+                disabled={!hasImage}
                 onClick={() => setHistMode('rgb')}
-                className={`px-1.5 py-0.5 rounded ${
-                  histMode === 'rgb' ? 'bg-[#2A2D34] text-white' : 'text-mutedText'
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
+                  histMode === 'rgb' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
                 }`}
               >
                 RGB
               </button>
               <button
                 type="button"
+                disabled={!hasImage}
                 onClick={() => setHistMode('gray')}
-                className={`px-1.5 py-0.5 rounded ${
-                  histMode === 'gray' ? 'bg-[#2A2D34] text-white' : 'text-mutedText'
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
+                  histMode === 'gray' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
                 }`}
               >
                 Luma
               </button>
             </div>
 
-            <div className="flex bg-subtleBg p-0.5 rounded border border-panelBorder text-[10px]">
+            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] ${!hasImage ? 'opacity-40 pointer-events-none' : ''}`}>
               <button
                 type="button"
+                disabled={!hasImage}
                 onClick={() => setHistTarget('current')}
-                className={`px-1.5 py-0.5 rounded ${
-                  histTarget === 'current' ? 'bg-[#2A2D34] text-white' : 'text-mutedText'
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
+                  histTarget === 'current' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
                 }`}
               >
                 Cur
               </button>
               <button
                 type="button"
+                disabled={!hasImage}
                 onClick={() => setHistTarget('original')}
-                className={`px-1.5 py-0.5 rounded ${
-                  histTarget === 'original' ? 'bg-[#2A2D34] text-white' : 'text-mutedText'
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
+                  histTarget === 'original' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
                 }`}
               >
                 Orig
@@ -178,9 +183,10 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
             <button
               type="button"
+              disabled={!hasImage}
               onClick={handleDownloadHistogramPng}
-              title="Unduh Grafik Histogram (PNG)"
-              className="p-1 rounded bg-subtleBg hover:bg-[#2A2D34] border border-panelBorder text-mutedText hover:text-white transition"
+              title="Download Histogram Chart (PNG)"
+              className="p-1 rounded-sm bg-subtleBg hover:bg-[#F5D8E2] border border-panelBorder text-mutedText hover:text-textPrimary transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <Download className="w-3 h-3" />
             </button>
@@ -188,8 +194,12 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
         </div>
 
         {/* Chart View */}
-        <div ref={chartRef} className="h-28 w-full bg-subtleBg/50 rounded border border-panelBorder p-1">
-          {chartData.length > 0 ? (
+        <div ref={chartRef} className="h-28 w-full bg-white rounded-sm border border-panelBorder p-1 flex items-center justify-center">
+          {!hasImage ? (
+            <div className="h-full flex items-center justify-center text-xs text-mutedText font-mono">
+              No image loaded
+            </div>
+          ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
                 <XAxis dataKey="bin" hide />
@@ -199,61 +209,70 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
                     if (!payload || payload.length === 0) return null;
                     const item = payload[0].payload;
                     return (
-                      <div className="bg-[#14161A] border border-panelBorder p-1.5 rounded text-[10px] font-mono text-white shadow-xl">
-                        <div>Bin: {item.bin}</div>
-                        {item.red !== undefined && <div className="text-rose-400">R: {item.red}</div>}
-                        {item.green !== undefined && <div className="text-emerald-400">G: {item.green}</div>}
-                        {item.blue !== undefined && <div className="text-blue-400">B: {item.blue}</div>}
-                        {item.gray !== undefined && <div className="text-gray-300">Gray: {item.gray}</div>}
+                      <div className="bg-white border border-panelBorder p-1.5 rounded-sm text-[10px] font-mono text-textPrimary shadow-md">
+                        <div className="font-bold">Bin: {item.bin}</div>
+                        {item.red !== undefined && <div className="text-rose-600">R: {item.red}</div>}
+                        {item.green !== undefined && <div className="text-emerald-600">G: {item.green}</div>}
+                        {item.blue !== undefined && <div className="text-blue-600">B: {item.blue}</div>}
+                        {item.gray !== undefined && <div className="text-textPrimary">Gray: {item.gray}</div>}
                       </div>
                     );
                   }}
                 />
                 {histMode === 'rgb' ? (
                   <>
-                    <Area type="monotone" dataKey="red" stroke="#EF4444" fill="#EF4444" fillOpacity={0.2} strokeWidth={1} isAnimationActive={false} />
-                    <Area type="monotone" dataKey="green" stroke="#10B981" fill="#10B981" fillOpacity={0.2} strokeWidth={1} isAnimationActive={false} />
-                    <Area type="monotone" dataKey="blue" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} strokeWidth={1} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="red" stroke="#EF4444" fill="#EF4444" fillOpacity={0.25} strokeWidth={1} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="green" stroke="#10B981" fill="#10B981" fillOpacity={0.25} strokeWidth={1} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="blue" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.25} strokeWidth={1} isAnimationActive={false} />
                   </>
                 ) : (
-                  <Area type="monotone" dataKey="gray" stroke="#E2E8F0" fill="#E2E8F0" fillOpacity={0.25} strokeWidth={1} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="gray" stroke="#C85A7C" fill="#C85A7C" fillOpacity={0.25} strokeWidth={1} isAnimationActive={false} />
                 )}
               </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-full flex items-center justify-center text-[10px] text-mutedText font-mono">
-              Memuat data histogram...
+              Computing histogram...
             </div>
           )}
         </div>
 
         {/* Tabular Monospace Stats */}
-        {activeHist?.stats && (
+        {hasImage && activeHist?.stats ? (
           <div className="grid grid-cols-4 gap-1 text-center font-mono">
-            <div className="bg-subtleBg p-1 rounded border border-panelBorder">
+            <div className="bg-white p-1 rounded-sm border border-panelBorder shadow-xs">
               <span className="block text-[9px] text-mutedText uppercase">Min</span>
-              <span className="block text-xs font-bold text-white tabular-nums">
+              <span className="block text-xs font-bold text-textPrimary tabular-nums">
                 {activeHist.stats.min.toFixed(0)}
               </span>
             </div>
-            <div className="bg-subtleBg p-1 rounded border border-panelBorder">
+            <div className="bg-white p-1 rounded-sm border border-panelBorder shadow-xs">
               <span className="block text-[9px] text-mutedText uppercase">Max</span>
-              <span className="block text-xs font-bold text-white tabular-nums">
+              <span className="block text-xs font-bold text-textPrimary tabular-nums">
                 {activeHist.stats.max.toFixed(0)}
               </span>
             </div>
-            <div className="bg-subtleBg p-1 rounded border border-panelBorder">
+            <div className="bg-white p-1 rounded-sm border border-panelBorder shadow-xs">
               <span className="block text-[9px] text-mutedText uppercase">Mean</span>
-              <span className="block text-xs font-bold text-white tabular-nums">
+              <span className="block text-xs font-bold text-textPrimary tabular-nums">
                 {activeHist.stats.mean.toFixed(1)}
               </span>
             </div>
-            <div className="bg-subtleBg p-1 rounded border border-panelBorder">
+            <div className="bg-white p-1 rounded-sm border border-panelBorder shadow-xs">
               <span className="block text-[9px] text-mutedText uppercase">Std</span>
-              <span className="block text-xs font-bold text-white tabular-nums">
+              <span className="block text-xs font-bold text-textPrimary tabular-nums">
                 {activeHist.stats.std_dev.toFixed(1)}
               </span>
             </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-1 text-center font-mono opacity-50">
+            {['Min', 'Max', 'Mean', 'Std'].map((label) => (
+              <div key={label} className="bg-subtleBg/50 p-1 rounded-sm border border-panelBorder/60">
+                <span className="block text-[9px] text-mutedText uppercase">{label}</span>
+                <span className="block text-xs text-mutedText tabular-nums">—</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -264,9 +283,9 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
       <div className="p-3.5 border-b border-panelBorder flex-1 space-y-4">
         <div>
           <div className="text-[10px] font-bold text-mutedText uppercase tracking-wider">
-            {opMeta?.category || 'PARAMETER'}
+            {opMeta?.category || 'PARAMETERS'}
           </div>
-          <h3 className="text-sm font-bold text-white tracking-wide">
+          <h3 className="text-sm font-bold text-textPrimary tracking-tight">
             {opMeta?.label || activeOp}
           </h3>
           <p className="text-[11px] text-mutedText mt-0.5 leading-relaxed">
@@ -303,20 +322,21 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
         <div className="flex gap-2 pt-3 border-t border-panelBorder">
           <button
             type="button"
+            disabled={!hasImage}
             onClick={onCancel}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded text-xs font-medium bg-subtleBg hover:bg-[#2A2D34] text-mutedText hover:text-white border border-panelBorder transition"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-medium bg-subtleBg hover:bg-[#F5D8E2] text-textPrimary border border-panelBorder transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
             <span>Cancel</span>
           </button>
           <button
             type="button"
+            disabled={!hasImage || isProcessing}
             onClick={onApply}
-            disabled={isProcessing}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded text-xs font-bold bg-accent hover:bg-accentHover text-white shadow-md transition disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-semibold bg-accent hover:bg-accentHover text-white shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>{isProcessing ? 'Memproses...' : 'Apply (Commit)'}</span>
+            <span>{isProcessing ? 'Processing...' : 'Apply (Commit)'}</span>
           </button>
         </div>
       </div>
@@ -325,7 +345,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
       {/* SECTION 3: PIPELINE HISTORY STACK */}
       {/* ------------------------------------------------------------------- */}
       <div className="p-3.5 space-y-2 shrink-0">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-white uppercase tracking-wider">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-textPrimary uppercase tracking-wider">
           <History className="w-3.5 h-3.5 text-accent" />
           <span>Pipeline History</span>
         </div>
@@ -336,10 +356,10 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
             return (
               <div
                 key={idx}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-xs font-mono transition border ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm text-xs font-mono transition border ${
                   isCurrent
-                    ? 'bg-accent/15 border-accent text-white font-medium'
-                    : 'bg-subtleBg/50 border-panelBorder text-mutedText'
+                    ? 'bg-[#FCEAF0] border-[#C85A7C] text-textPrimary font-semibold shadow-xs'
+                    : 'bg-white border-panelBorder text-mutedText'
                 }`}
               >
                 <span className={`text-[10px] ${isCurrent ? 'text-accent font-bold' : 'text-mutedText'}`}>

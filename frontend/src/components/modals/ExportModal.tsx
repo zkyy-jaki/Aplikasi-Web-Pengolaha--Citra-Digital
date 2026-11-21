@@ -38,22 +38,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       await downloadExportImage(sessionId, format, quality, computedFilename);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Gagal mengekspor berkas');
+      setError(err instanceof Error ? err.message : 'Failed to export image file');
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-      <div className="bg-[#181A1F] border border-[#2A2D34] rounded-lg w-full max-w-md shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-panel border border-panelBorder rounded-sm w-full max-w-md shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2D34]">
-          <h2 className="text-sm font-semibold text-white tracking-wide">Simpan Citra (Export)</h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-panelBorder bg-white">
+          <h2 className="text-sm font-bold text-textPrimary tracking-tight">Export Processed Image</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-mutedText hover:text-white transition"
+            className="text-mutedText hover:text-textPrimary transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -62,15 +62,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Content */}
         <div className="p-5 space-y-4">
           {error && (
-            <div className="p-3 rounded bg-rose-950/50 border border-rose-800 text-xs text-rose-300">
+            <div className="p-3 rounded-sm bg-rose-50 border border-rose-300 text-xs text-rose-800">
               {error}
             </div>
           )}
 
           {/* Format Selection */}
           <div>
-            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
-              Format Berkas
+            <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-1.5">
+              File Format
             </label>
             <div className="grid grid-cols-3 gap-2">
               {(['png', 'jpeg', 'bmp'] as const).map((fmt) => (
@@ -78,10 +78,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   key={fmt}
                   type="button"
                   onClick={() => setFormat(fmt)}
-                  className={`py-2 px-3 rounded text-xs font-medium uppercase border transition ${
+                  className={`py-2 px-3 rounded-sm text-xs font-semibold uppercase border transition cursor-pointer ${
                     format === fmt
-                      ? 'border-accent bg-accent/20 text-white font-bold'
-                      : 'border-[#2A2D34] bg-[#21242B] text-mutedText hover:text-white'
+                      ? 'border-accent bg-subtleBg text-accent shadow-xs'
+                      : 'border-panelBorder bg-white text-mutedText hover:text-textPrimary'
                   }`}
                 >
                   {fmt}
@@ -92,10 +92,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {/* Quality Slider (JPEG only) */}
           {format === 'jpeg' && (
-            <div className="bg-[#21242B] p-3 rounded border border-[#2A2D34] space-y-2">
+            <div className="bg-subtleBg/70 p-3 rounded-sm border border-panelBorder space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-mutedText">Kualitas JPEG</span>
-                <span className="font-mono text-white font-bold">{quality}%</span>
+                <span className="text-mutedText font-semibold">JPEG Quality</span>
+                <span className="font-mono text-textPrimary font-bold">{quality}%</span>
               </div>
               <input
                 type="range"
@@ -104,12 +104,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 step={5}
                 value={quality}
                 onChange={(e) => setQuality(parseInt(e.target.value, 10))}
-                className="w-full"
+                className="w-full cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-mutedText font-mono">
-                <span>10% (Terkecil)</span>
+                <span>10% (Lowest)</span>
                 <span>90% (Optimal)</span>
-                <span>100% (Maksimal)</span>
+                <span>100% (Maximum)</span>
               </div>
             </div>
           )}
@@ -117,50 +117,50 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           {/* Filename Input */}
           <div>
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-1.5">
-              Nama Berkas
+              File Name
             </label>
-            <div className="flex items-center bg-[#21242B] border border-[#2A2D34] rounded px-3 py-2 text-xs">
+            <div className="flex items-center bg-white border border-panelBorder rounded-sm px-3 py-1.5 text-xs">
               <input
                 type="text"
                 placeholder={baseName + '_processed'}
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
-                className="bg-transparent flex-1 text-white focus:outline-none font-mono"
+                className="bg-transparent flex-1 text-textPrimary focus:outline-none font-mono"
               />
               <span className="text-mutedText font-mono ml-1">.{ext}</span>
             </div>
           </div>
 
-          {/* Histogram Download Bonus */}
-          <div className="pt-2 border-t border-[#2A2D34]">
+          {/* Histogram Download Action */}
+          <div className="pt-2 border-t border-panelBorder">
             <button
               type="button"
               onClick={onDownloadHistogram}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded border border-[#2A2D34] bg-[#21242B] text-xs text-mutedText hover:text-white hover:border-gray-500 transition"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-sm border border-panelBorder bg-white text-xs font-medium text-textPrimary hover:bg-subtleBg transition cursor-pointer shadow-xs"
             >
-              <BarChart2 className="w-3.5 h-3.5" />
-              <span>Unduh Grafik Histogram Saat Ini (PNG)</span>
+              <BarChart2 className="w-3.5 h-3.5 text-accent" />
+              <span>Download Current Histogram Chart (PNG)</span>
             </button>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-[#14161A] border-t border-[#2A2D34]">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3 bg-white border-t border-panelBorder">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded text-xs text-mutedText hover:text-white transition"
+            className="px-3.5 py-1.5 rounded-sm text-xs text-mutedText hover:text-textPrimary transition cursor-pointer"
           >
-            Batal
+            Cancel
           </button>
           <button
             type="button"
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-2 px-5 py-1.5 rounded text-xs font-semibold bg-white text-black hover:bg-gray-200 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-1.5 rounded-sm text-xs font-semibold bg-accent text-white hover:bg-accentHover transition disabled:opacity-50 shadow-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? 'Mengekspor...' : 'Unduh Citra'}</span>
+            <span>{isExporting ? 'Exporting...' : 'Download Image'}</span>
           </button>
         </div>
       </div>

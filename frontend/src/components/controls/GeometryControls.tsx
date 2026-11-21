@@ -30,7 +30,7 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
       <div className="space-y-4">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
-            Arah Pencerminan
+            Mirror Direction
           </label>
           <div className="grid grid-cols-1 gap-1.5">
             {directions.map(({ dir, label, icon }) => (
@@ -38,10 +38,10 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
                 key={dir}
                 type="button"
                 onClick={() => onChange({ direction: dir })}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded text-xs transition border ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-xs transition border cursor-pointer ${
                   p.direction === dir
-                    ? 'bg-accent text-white border-accent font-medium shadow-sm'
-                    : 'bg-subtleBg text-gray-300 border-panelBorder hover:text-white hover:bg-[#2A2D34]'
+                    ? 'bg-accent text-white border-accent font-semibold shadow-xs'
+                    : 'bg-white text-mutedText border-panelBorder hover:text-textPrimary hover:bg-subtleBg'
                 }`}
               >
                 {icon}
@@ -51,8 +51,8 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
           </div>
         </div>
 
-        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/50 border border-panelBorder p-2.5 rounded">
-          Membalik posisi koordinat piksel tanpa mengubah nilai intensitas. Kanal Alpha ikut dicerminkan secara identik.
+        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
+          Flips pixel coordinate indices without modifying intensity values. PNG Alpha transparency channel is mirrored identically.
         </p>
       </div>
     );

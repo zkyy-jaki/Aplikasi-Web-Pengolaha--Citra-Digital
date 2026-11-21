@@ -27,18 +27,18 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
       <div className="space-y-4">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
-            Metode Grayscale
+            Grayscale Method
           </label>
-          <div className="grid grid-cols-3 gap-1 bg-subtleBg p-1 rounded border border-panelBorder">
+          <div className="grid grid-cols-3 gap-1 bg-subtleBg p-1 rounded-sm border border-panelBorder">
             {(['luminance', 'average', 'lightness'] as const).map((method) => (
               <button
                 key={method}
                 type="button"
                 onClick={() => onChange({ method })}
-                className={`py-1.5 px-2 text-xs font-medium rounded transition capitalize ${
+                className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition capitalize cursor-pointer ${
                   p.method === method
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-gray-300 hover:text-white hover:bg-[#2A2D34]'
+                    ? 'bg-accent text-white shadow-xs'
+                    : 'text-mutedText hover:text-textPrimary hover:bg-white'
                 }`}
               >
                 {method}
@@ -47,9 +47,9 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
           </div>
         </div>
         <p className="text-[11px] text-mutedText leading-relaxed">
-          {p.method === 'luminance' && 'Luminance (ITU-R BT.601): Y = 0.299R + 0.587G + 0.114B sesuai respon retina mata.'}
-          {p.method === 'average' && 'Average: Y = (R + G + B) / 3 nilai rata-rata ketiga kanal warna.'}
-          {p.method === 'lightness' && 'Lightness: Y = (max(R,G,B) + min(R,G,B)) / 2 desaturasi rentang extremum.'}
+          {p.method === 'luminance' && 'Luminance (ITU-R BT.601): Y = 0.299R + 0.587G + 0.114B calibrated to human spectral perception.'}
+          {p.method === 'average' && 'Average: Y = (R + G + B) / 3 arithmetic mean of all three color channels.'}
+          {p.method === 'lightness' && 'Lightness: Y = (max(R,G,B) + min(R,G,B)) / 2 desaturating extremum intensity range.'}
         </p>
       </div>
     );
@@ -74,7 +74,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
                 const val = parseInt(e.target.value, 10);
                 onChange({ beta: isNaN(val) ? 0 : Math.max(-255, Math.min(255, val)) });
               }}
-              className="w-16 bg-subtleBg border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono text-xs text-white focus:outline-none focus:border-accent"
+              className="w-16 bg-white border border-panelBorder rounded-sm px-1.5 py-0.5 text-right font-mono text-xs text-textPrimary focus:outline-none focus:border-accent"
             />
           </div>
           <input
@@ -91,8 +91,8 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             <span>+255</span>
           </div>
         </div>
-        <div className="bg-subtleBg/50 border border-panelBorder p-2.5 rounded text-[11px] text-mutedText leading-relaxed">
-          <span className="text-gray-300 font-medium">Safe Clamping:</span> Nilai intensitas di-clamp ketat ke [0, 255] dengan kalkulasi 16-bit untuk mencegah cacat wrap-around.
+        <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText leading-relaxed">
+          <span className="text-textPrimary font-semibold">Safe Clamping:</span> Intensities are strictly clamped to [0, 255] using 16-bit intermediate math to prevent overflow wrap-around.
         </div>
       </div>
     );
@@ -101,10 +101,10 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
   if (activeOp === 'negative') {
     return (
       <div className="space-y-3">
-        <div className="bg-subtleBg/60 border border-panelBorder p-3 rounded text-xs space-y-2">
-          <p className="font-semibold text-white">Inversi Negatif (255 - I)</p>
+        <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded-sm text-xs space-y-1.5">
+          <p className="font-semibold text-textPrimary">Negative Inversion (255 - I)</p>
           <p className="text-[11px] text-mutedText leading-relaxed">
-            Membalik intensitas seluruh kanal warna RGB. Kanal transparansi Alpha (A) PNG dipertahankan penuh tanpa inversi.
+            Inverts pixel values across all color channels. PNG Alpha transparency channel is preserved without inversion.
           </p>
         </div>
       </div>
@@ -118,12 +118,12 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
       <div className="space-y-4">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
-            Metode Thresholding
+            Thresholding Method
           </label>
           <select
             value={p.method}
             onChange={(e) => onChange({ method: e.target.value as ThresholdParams['method'] })}
-            className="w-full bg-subtleBg border border-panelBorder text-xs rounded px-2.5 py-2 text-white focus:outline-none focus:border-accent"
+            className="w-full bg-white border border-panelBorder text-xs rounded-sm px-2.5 py-1.5 text-textPrimary focus:outline-none focus:border-accent cursor-pointer"
           >
             <option value="binary">Binary (I &gt; T → 255, else 0)</option>
             <option value="binary_inv">Binary Invert (I &gt; T → 0, else 255)</option>
@@ -137,7 +137,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
-                Ambang Batas (T)
+                Threshold (T)
               </label>
               <input
                 type="number"
@@ -148,7 +148,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
                   const val = parseInt(e.target.value, 10);
                   onChange({ thresh: isNaN(val) ? 127 : Math.max(0, Math.min(255, val)) });
                 }}
-                className="w-16 bg-subtleBg border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono text-xs text-white focus:outline-none focus:border-accent"
+                className="w-16 bg-white border border-panelBorder rounded-sm px-1.5 py-0.5 text-right font-mono text-xs text-textPrimary focus:outline-none focus:border-accent"
               />
             </div>
             <input
@@ -166,15 +166,15 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             </div>
           </div>
         ) : (
-          <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded text-xs space-y-1.5">
-            <div className="flex justify-between items-center">
-              <span className="text-mutedText">Otsu Calculated Threshold:</span>
-              <span className="font-mono font-bold text-accent text-sm">
-                {otsuCalculatedT !== null ? otsuCalculatedT : 'Menghitung...'}
+          <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded-sm space-y-1.5">
+            <div className="text-xs font-semibold text-textPrimary flex items-center justify-between">
+              <span>Otsu Optimal Threshold:</span>
+              <span className="font-mono text-accent text-sm font-bold">
+                {otsuCalculatedT !== null ? `T = ${otsuCalculatedT}` : 'Calculating...'}
               </span>
             </div>
             <p className="text-[11px] text-mutedText leading-relaxed">
-              Algoritma Otsu menghitung ambang batas optimal secara otomatis dengan meminimalkan varians intra-kelas.
+              Minimizes intra-class intensity variance automatically from image histogram bi-modality.
             </p>
           </div>
         )}
@@ -184,75 +184,84 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
 
   if (activeOp === 'equalize') {
     const p = params as EqualizeParams;
+    const isClahe = p.mode === 'clahe';
     return (
       <div className="space-y-4">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
-            Mode Equalization
+            Equalization Mode
           </label>
-          <div className="grid grid-cols-2 gap-1 bg-subtleBg p-1 rounded border border-panelBorder">
+          <div className="grid grid-cols-2 gap-1 bg-subtleBg p-1 rounded-sm border border-panelBorder">
             <button
               type="button"
               onClick={() => onChange({ mode: 'global' })}
-              className={`py-1.5 px-2 text-xs font-medium rounded transition ${
-                p.mode === 'global'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-gray-300 hover:text-white hover:bg-[#2A2D34]'
+              className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition cursor-pointer ${
+                !isClahe
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'text-mutedText hover:text-textPrimary hover:bg-white'
               }`}
             >
-              Global YCrCb
+              Global (YCrCb)
             </button>
             <button
               type="button"
               onClick={() => onChange({ mode: 'clahe' })}
-              className={`py-1.5 px-2 text-xs font-medium rounded transition ${
-                p.mode === 'clahe'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-gray-300 hover:text-white hover:bg-[#2A2D34]'
+              className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition cursor-pointer ${
+                isClahe
+                  ? 'bg-accent text-white shadow-xs'
+                  : 'text-mutedText hover:text-textPrimary hover:bg-white'
               }`}
             >
-              Adaptive (CLAHE)
+              CLAHE (Adaptive)
             </button>
           </div>
         </div>
 
-        {p.mode === 'global' ? (
-          <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/50 border border-panelBorder p-2.5 rounded">
-            <span className="text-gray-300 font-medium">Luminance-Only:</span> Meratakan histogram kanal luminansi Y pada ruang warna YCrCb untuk mencegah pergeseran warna (color shift).
-          </p>
-        ) : (
+        {isClahe ? (
           <div className="space-y-3">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="text-xs text-mutedText">Clip Limit</label>
-                <span className="font-mono text-xs text-white">{p.clip_limit}</span>
+                <span className="font-mono text-xs text-textPrimary font-bold">
+                  {(p.clip_limit ?? 2.0).toFixed(1)}
+                </span>
               </div>
               <input
                 type="range"
-                min={0.5}
+                min={1.0}
                 max={10.0}
-                step={0.1}
-                value={p.clip_limit}
+                step={0.5}
+                value={p.clip_limit ?? 2.0}
                 onChange={(e) => onChange({ clip_limit: parseFloat(e.target.value) })}
-                className="w-full"
+                className="w-full cursor-pointer"
               />
             </div>
+
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="text-xs text-mutedText">Tile Grid Size</label>
-                <span className="font-mono text-xs text-white">{p.tile_grid_size}×{p.tile_grid_size}</span>
+                <span className="font-mono text-xs text-textPrimary font-bold">
+                  {p.tile_grid_size ?? 8}×{p.tile_grid_size ?? 8}
+                </span>
               </div>
               <input
                 type="range"
                 min={2}
-                max={32}
+                max={16}
                 step={2}
-                value={p.tile_grid_size}
+                value={p.tile_grid_size ?? 8}
                 onChange={(e) => onChange({ tile_grid_size: parseInt(e.target.value, 10) })}
-                className="w-full"
+                className="w-full cursor-pointer"
               />
             </div>
+            <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
+              Contrast Limited Adaptive Histogram Equalization operates on local rectangular tiles to prevent noise amplification in flat regions.
+            </p>
           </div>
+        ) : (
+          <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
+            Equalizes Luminance channel (Y in YCrCb color space) exclusively, preventing artificial hue distortion on color images.
+          </p>
         )}
       </div>
     );

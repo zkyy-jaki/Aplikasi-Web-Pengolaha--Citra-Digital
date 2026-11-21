@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { UploadCloud, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { UploadCloud, Image as ImageIcon } from 'lucide-react';
 import { ViewMode, ZoomLevel } from '@/types/operations';
 import { WorkspaceMetadata } from '@/hooks/useImageWorkspace';
 import { fetchSampleList } from '@/services/api';
@@ -45,11 +45,10 @@ export const CenterStage: React.FC<CenterStageProps> = ({
     fetchSampleList()
       .then((s) => setSamples(s))
       .catch(() => {
-        // Fallback sample paths
         setSamples([
-          '/api/samples/sample_salt_pepper.png',
-          '/api/samples/sample_low_contrast.png',
           '/api/samples/sample_geometric.png',
+          '/api/samples/sample_low_contrast.png',
+          '/api/samples/sample_salt_pepper.png',
         ]);
       });
   }, []);
@@ -135,18 +134,18 @@ export const CenterStage: React.FC<CenterStageProps> = ({
 
   return (
     <main
-      className="flex-1 bg-canvas flex flex-col relative overflow-hidden select-none"
+      className="flex-1 bg-canvas dot-grid-bg flex flex-col relative overflow-hidden select-none"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Drag & Drop Visual Overlay */}
       {isDraggingFile && (
-        <div className="absolute inset-0 bg-accent/20 border-2 border-accent border-dashed z-40 flex items-center justify-center backdrop-blur-sm pointer-events-none">
-          <div className="bg-panel border border-accent p-6 rounded-lg shadow-xl text-center space-y-2">
+        <div className="absolute inset-0 bg-accent/15 border-2 border-accent border-dashed z-40 flex items-center justify-center backdrop-blur-xs pointer-events-none">
+          <div className="bg-panel border border-accent p-6 rounded-sm shadow-lg text-center space-y-2">
             <UploadCloud className="w-10 h-10 text-accent mx-auto animate-bounce" />
-            <p className="text-sm font-semibold text-white">Lepaskan Berkas Citra di Sini</p>
-            <p className="text-xs text-mutedText">Format didukung: PNG, JPEG, BMP, WebP</p>
+            <p className="text-sm font-semibold text-textPrimary">Drop image file here</p>
+            <p className="text-xs text-mutedText">Supported: PNG, JPEG, BMP, WebP</p>
           </div>
         </div>
       )}
@@ -154,25 +153,25 @@ export const CenterStage: React.FC<CenterStageProps> = ({
       {/* Main View Area */}
       <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
         {!metadata ? (
-          /* Empty State: Upload Zone + Sample Buttons */
-          <div className="max-w-md w-full bg-panel border border-panelBorder rounded-xl p-8 text-center space-y-6 shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-subtleBg border border-panelBorder flex items-center justify-center mx-auto text-accent">
-              <ImageIcon className="w-8 h-8" />
+          /* Empty State: Direct on Canvas with Dot Grid, No Heavy Card Wrapper */
+          <div className="flex flex-col items-center justify-center text-center max-w-lg p-6 space-y-5">
+            <div className="w-14 h-14 rounded-full bg-subtleBg border border-panelBorder flex items-center justify-center text-accent shadow-xs">
+              <ImageIcon className="w-7 h-7" />
             </div>
 
-            <div className="space-y-1.5">
-              <h2 className="text-base font-bold text-white tracking-wide">
-                Eksperimen Pengolahan Citra Digital
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-textPrimary tracking-tight">
+                Digital Image Processing Studio
               </h2>
-              <p className="text-xs text-mutedText leading-relaxed">
-                Tarik dan lepaskan gambar ke sini, atau klik tombol di bawah untuk memuat citra lokal.
+              <p className="text-xs text-mutedText max-w-sm">
+                Drag and drop an image file here, or browse from your device to begin processing
               </p>
             </div>
 
             <div>
-              <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded cursor-pointer transition shadow-md">
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-sm cursor-pointer transition shadow-xs">
                 <UploadCloud className="w-4 h-4" />
-                <span>Pilih Gambar dari Komputer</span>
+                <span>Open Image</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/bmp,image/webp"
@@ -184,40 +183,40 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                   className="hidden"
                 />
               </label>
-              <p className="text-[10px] text-mutedText mt-2">Maksimal 10 MB • PNG, JPEG, BMP, WebP</p>
+              <p className="text-[11px] text-mutedText mt-1.5 font-mono">PNG, JPEG, BMP, WebP • Max 10 MB</p>
             </div>
 
-            {/* Built-in Samples Quick Pick */}
-            <div className="pt-4 border-t border-panelBorder space-y-2.5">
-              <div className="flex items-center justify-center gap-1.5 text-xs text-mutedText font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Atau Coba Gambar Sampel Bawaan</span>
-              </div>
+            {/* Built-in Samples Quick Pick with Visual Thumbnails */}
+            <div className="pt-4 border-t border-panelBorder/70 w-full space-y-2.5">
+              <span className="text-xs font-medium text-mutedText block">
+                Or try sample benchmark images:
+              </span>
 
-              <div className="grid grid-cols-3 gap-2 text-left">
+              <div className="grid grid-cols-3 gap-2.5 text-center">
                 {samples.map((sampleUrl) => {
-                  const label = sampleUrl.includes('salt_pepper')
-                    ? 'Salt & Pepper'
-                    : sampleUrl.includes('low_contrast')
-                    ? 'Low Contrast'
-                    : 'Geometric';
-                  const desc = sampleUrl.includes('salt_pepper')
-                    ? 'Uji Median Blur'
-                    : sampleUrl.includes('low_contrast')
-                    ? 'Uji Equalization'
-                    : 'Uji Edge & Sobel';
+                  const isGeo = sampleUrl.includes('geometric');
+                  const isLow = sampleUrl.includes('low_contrast');
+                  const label = isGeo ? 'Geometric' : isLow ? 'Low Contrast' : 'Salt & Pepper';
+                  const desc = isGeo ? 'Edge & Gradient' : isLow ? 'Equalization' : 'Median Filter';
 
                   return (
                     <button
                       key={sampleUrl}
                       type="button"
                       onClick={() => onLoadSample(sampleUrl)}
-                      className="p-2.5 rounded bg-subtleBg hover:bg-[#2A2D34] border border-panelBorder transition text-left group"
+                      className="group p-2 rounded-sm bg-white/80 hover:bg-white border border-panelBorder hover:border-accent transition shadow-xs text-center cursor-pointer"
                     >
-                      <span className="block text-xs font-semibold text-white group-hover:text-accent truncate">
+                      <div className="w-full h-14 rounded-sm overflow-hidden border border-panelBorder bg-subtleBg mb-1.5 flex items-center justify-center">
+                        <img
+                          src={sampleUrl}
+                          alt={label}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      </div>
+                      <span className="block text-xs font-semibold text-textPrimary group-hover:text-accent truncate">
                         {label}
                       </span>
-                      <span className="block text-[10px] text-mutedText mt-0.5 truncate">{desc}</span>
+                      <span className="block text-[10px] text-mutedText truncate">{desc}</span>
                     </button>
                   );
                 })}
@@ -230,7 +229,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
             {/* View Mode: Single */}
             {viewMode === 'single' && (
               <div className="relative max-w-full max-h-full flex items-center justify-center">
-                <div className="checkerboard-bg rounded border border-panelBorder shadow-2xl overflow-hidden flex items-center justify-center">
+                <div className="checkerboard-bg rounded-sm border border-panelBorder shadow-sm overflow-hidden flex items-center justify-center">
                   <img
                     src={processedSrc}
                     alt="Processed"
@@ -240,7 +239,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                     className="block"
                   />
                 </div>
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white border border-white/10 uppercase">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white font-semibold shadow-xs uppercase">
                   Processed
                 </div>
               </div>
@@ -250,7 +249,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
             {viewMode === 'side-by-side' && (
               <div className="grid grid-cols-2 gap-4 w-full h-full p-2 items-center">
                 <div className="relative w-full h-full flex flex-col items-center justify-center">
-                  <div className="checkerboard-bg rounded border border-panelBorder shadow-2xl overflow-hidden flex items-center justify-center max-w-full max-h-full">
+                  <div className="checkerboard-bg rounded-sm border border-panelBorder shadow-sm overflow-hidden flex items-center justify-center max-w-full max-h-full">
                     <img
                       src={originalSrc}
                       alt="Original"
@@ -260,13 +259,13 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                       className="block"
                     />
                   </div>
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white border border-white/10 uppercase">
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-white/90 text-[10px] font-mono text-textPrimary border border-panelBorder font-semibold shadow-xs uppercase">
                     Original
                   </div>
                 </div>
 
                 <div className="relative w-full h-full flex flex-col items-center justify-center">
-                  <div className="checkerboard-bg rounded border border-panelBorder shadow-2xl overflow-hidden flex items-center justify-center max-w-full max-h-full">
+                  <div className="checkerboard-bg rounded-sm border border-panelBorder shadow-sm overflow-hidden flex items-center justify-center max-w-full max-h-full">
                     <img
                       src={processedSrc}
                       alt="Processed"
@@ -276,7 +275,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                       className="block"
                     />
                   </div>
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-accent/80 backdrop-blur-sm text-[10px] font-mono text-white border border-accent/30 uppercase">
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white font-semibold shadow-xs uppercase">
                     Processed
                   </div>
                 </div>
@@ -289,7 +288,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                 ref={containerRef}
                 className="relative max-w-full max-h-full flex items-center justify-center select-none"
               >
-                <div className="checkerboard-bg rounded border border-panelBorder shadow-2xl overflow-hidden relative">
+                <div className="checkerboard-bg rounded-sm border border-panelBorder shadow-sm overflow-hidden relative">
                   {/* Bottom: Processed Image */}
                   <img
                     src={processedSrc}
@@ -315,27 +314,27 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                     />
                   </div>
 
-                  {/* Vertical 1px White Divider Line */}
+                  {/* Vertical 1px Divider Line */}
                   <div
-                    className="absolute top-0 bottom-0 w-[1px] bg-white cursor-ew-resize z-20"
+                    className="absolute top-0 bottom-0 w-[1px] bg-accent cursor-ew-resize z-20"
                     style={{ left: `${splitPosition}%` }}
                     onMouseDown={handleSplitMouseDown}
                   >
                     {/* Small Circular Center Handle */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-lg border border-black/20 flex items-center justify-center">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white shadow-md border border-panelBorder flex items-center justify-center">
                       <div className="flex gap-0.5">
-                        <div className="w-0.5 h-2 bg-black/40 rounded-full" />
-                        <div className="w-0.5 h-2 bg-black/40 rounded-full" />
+                        <div className="w-0.5 h-2 bg-accent rounded-full" />
+                        <div className="w-0.5 h-2 bg-accent rounded-full" />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Corner Labels */}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white border border-white/10 uppercase">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-white/90 text-[10px] font-mono text-textPrimary border border-panelBorder font-semibold shadow-xs uppercase">
                   Original
                 </div>
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-accent/80 backdrop-blur-sm text-[10px] font-mono text-white border border-accent/30 uppercase">
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white font-semibold shadow-xs uppercase">
                   Processed
                 </div>
               </div>
@@ -345,15 +344,15 @@ export const CenterStage: React.FC<CenterStageProps> = ({
       </div>
 
       {/* Minimal Bottom Status Bar */}
-      <footer className="h-7 bg-panelHeader border-t border-panelBorder px-4 flex items-center justify-between text-[11px] font-mono text-mutedText shrink-0">
+      <footer className="h-7 bg-panel border-t border-panelBorder px-4 flex items-center justify-between text-[11px] font-mono text-mutedText shrink-0">
         <div className="flex items-center gap-4">
           <span>
             X:{' '}
-            <span className="text-white">
+            <span className="text-textPrimary font-semibold">
               {cursorPos.x !== null ? `${cursorPos.x}px` : '—'}
             </span>{' '}
             Y:{' '}
-            <span className="text-white">
+            <span className="text-textPrimary font-semibold">
               {cursorPos.y !== null ? `${cursorPos.y}px` : '—'}
             </span>
           </span>
@@ -361,8 +360,8 @@ export const CenterStage: React.FC<CenterStageProps> = ({
             <>
               <span className="text-panelBorder">•</span>
               <span>
-                Resolusi:{' '}
-                <span className="text-white">
+                Resolution:{' '}
+                <span className="text-textPrimary font-semibold">
                   {metadata.width} × {metadata.height}
                 </span>
               </span>
@@ -372,12 +371,12 @@ export const CenterStage: React.FC<CenterStageProps> = ({
 
         <div className="flex items-center gap-3">
           {isProcessing ? (
-            <span className="flex items-center gap-1.5 text-accent animate-pulse">
+            <span className="flex items-center gap-1.5 text-accent animate-pulse font-sans text-xs">
               <span className="w-2 h-2 rounded-full bg-accent" />
-              <span>Memproses...</span>
+              <span>Processing...</span>
             </span>
           ) : processingTimeMs > 0 ? (
-            <span className="flex items-center gap-1 text-emerald-400">
+            <span className="flex items-center gap-1 text-accent font-semibold">
               <span>⚡</span>
               <span>{processingTimeMs.toFixed(1)} ms</span>
             </span>

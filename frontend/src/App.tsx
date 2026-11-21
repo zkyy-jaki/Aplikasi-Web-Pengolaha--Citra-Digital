@@ -46,7 +46,6 @@ export function App() {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if focus is inside an input/select/textarea
       const target = e.target as HTMLElement;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
         return;
@@ -54,40 +53,42 @@ export function App() {
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        handleHistoryAction('undo');
+        if (metadata && historyIndex > 0) handleHistoryAction('undo');
       } else if (
         ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
       ) {
         e.preventDefault();
-        handleHistoryAction('redo');
+        if (metadata && historyIndex < historyList.length - 1) handleHistoryAction('redo');
       } else if (e.key === 'Escape') {
         e.preventDefault();
         if (isExportOpen) {
           setIsExportOpen(false);
-        } else {
+        } else if (metadata) {
           handleCancel();
         }
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        handleApply();
+        if (metadata) {
+          handleApply();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleHistoryAction, handleCancel, handleApply, isExportOpen]);
+  }, [handleHistoryAction, handleCancel, handleApply, isExportOpen, metadata, historyIndex, historyList.length]);
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-canvas text-gray-200 select-none">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-canvas text-textPrimary select-none">
       {/* Top Bar */}
       <TopBar
         metadata={metadata}
         viewMode={viewMode}
         zoom={zoom}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < historyList.length - 1}
-        canReset={historyList.length > 1}
+        canUndo={!!metadata && historyIndex > 0}
+        canRedo={!!metadata && historyIndex < historyList.length - 1}
+        canReset={!!metadata && historyList.length > 1}
         onSelectFile={handleUploadFile}
         onSetViewMode={setViewMode}
         onSetZoom={setZoom}
@@ -132,6 +133,7 @@ export function App() {
           historyIndex={historyIndex}
           otsuCalculatedT={otsuCalculatedT}
           isProcessing={isProcessing}
+          hasImage={!!metadata}
           onUpdateParams={handleUpdateParams}
           onApply={handleApply}
           onCancel={handleCancel}
@@ -147,14 +149,14 @@ export function App() {
           defaultFilename={metadata.filename}
           onDownloadHistogram={() => {
             const btn = document.querySelector<HTMLButtonElement>(
-              'button[title="Unduh Grafik Histogram (PNG)"]'
+              'button[title="Download Histogram Chart (PNG)"]'
             );
-            btn?.click();
+            if (btn) btn.click();
           }}
         />
       )}
 
-      {/* Error Toast Banner */}
+      {/* Error Toast Notification */}
       {errorMessage && (
         <ToastError
           title={errorMessage.title}
@@ -165,5 +167,4 @@ export function App() {
     </div>
   );
 }
-
 export default App;
