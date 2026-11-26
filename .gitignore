@@ -103,3 +103,9 @@ frontend/*.tsbuildinfo
 *.swp
 *.swo
 *~
+
+# ==========================================
+# Local Notes, Revisions & Presentation Guides
+# ==========================================
+PANDUAN_DEMO_DAN_PRESENTASI.md
+Revisi.md
