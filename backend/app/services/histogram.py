@@ -1,6 +1,5 @@
-"""Histogram computation and pixel statistics."""
+"""Histogram computation and pixel statistics (pure NumPy, no cv2)."""
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel
@@ -29,8 +28,8 @@ def compute_histogram(image: NDArray[np.uint8]) -> HistogramResult:
 
     if is_gray:
         gray = image if image.ndim == 2 else image[:, :, 0]
-        hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
-        channels = [ChannelHistogram(channel="gray", values=hist.flatten().astype(int).tolist())]
+        hist_vals = np.bincount(gray.ravel(), minlength=256).tolist()
+        channels = [ChannelHistogram(channel="gray", values=hist_vals)]
         flat = gray.flatten().astype(np.float64)
         stats = HistogramStats(
             min=float(flat.min()),
@@ -45,8 +44,8 @@ def compute_histogram(image: NDArray[np.uint8]) -> HistogramResult:
     names = ["blue", "green", "red"]
     channels = []
     for i, name in enumerate(names):
-        h = cv2.calcHist([bgr], [i], None, [256], [0, 256])
-        channels.append(ChannelHistogram(channel=name, values=h.flatten().astype(int).tolist()))
+        h = np.bincount(bgr[:, :, i].ravel(), minlength=256).tolist()
+        channels.append(ChannelHistogram(channel=name, values=h))
 
     flat = bgr.flatten().astype(np.float64)
     stats = HistogramStats(

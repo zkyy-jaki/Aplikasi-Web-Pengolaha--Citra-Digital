@@ -169,7 +169,10 @@ def _make_preview_b64(image: NDArray[np.uint8]) -> str:
     max_side = settings.PREVIEW_MAX_SIDE
     if max(h, w) > max_side:
         scale = max_side / max(h, w)
-        image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        new_h, new_w = int(h * scale), int(w * scale)
+        y_idx = np.clip(np.round(np.linspace(0, h - 1, new_h)).astype(int), 0, h - 1)
+        x_idx = np.clip(np.round(np.linspace(0, w - 1, new_w)).astype(int), 0, w - 1)
+        image = image[np.ix_(y_idx, x_idx)]
 
     # Encode to PNG bytes → base64
     import base64

@@ -1,166 +1,215 @@
-# Audit & Rencana Refaktorisasi Algoritma Pengolahan Citra Digital (From Scratch)
+# Spesifikasi Refaktorisasi Algoritma PCD (From Scratch / Pure NumPy)
 
-Dokumen ini memuat analisis mendalam mengenai ketergantungan library pada aplikasi **PCD Studio**, pemisahan fitur yang sudah manual vs yang masih *black-box*, serta cetak biru teknis implementasi algoritma manual (berbasis NumPy) agar mahasiswa dapat menjelaskan prinsip **sebab-akibat matematis** di hadapan dosen penguji.
+Dokumen ini adalah spesifikasi teknis untuk merombak seluruh operasi pemrosesan citra di backend **PCD Studio** agar menggunakan implementasi algoritma manual berbasis NumPy tanpa fungsi *black-box* OpenCV (`cv2.*`).
 
----
+## 0. Instruksi Kerja untuk Coding Agent
 
-## 1. Latar Belakang & Urgensi
-
-Dalam konteks mata kuliah **Pengolahan Citra Digital (PCD)**:
-- **Tuntutan Evaluasi Dosen:** Mahasiswa diharapkan memahami representasi citra sebagai matriks $2\text{D}/3\text{D}$, operasi tetangga (*neighborhood operation*), konvolusi spasial, dan distribusi frekuensi piksel secara matematis.
-- **Masalah Saat Ini:** Sebagian besar filter spasial dan transformasi intensitas masih memanggil fungsi bawaan OpenCV (`cv2.*`). Fungsi tersebut bersifat *black-box* (terenkapsulasi dalam binary C++), sehingga alur komputasi piksel per piksel tidak tampak pada kode sumber.
-- **Tujuan Refaktorisasi:** Menghapus fungsi *black-box* OpenCV pada seluruh logika pemrosesan citra, menggantinya dengan implementasi algoritma murni menggunakan operasi array/vektorisasi NumPy, dan menyisakan OpenCV **hanya untuk membaca/menulis file (I/O)**.
-
----
-
-## 2. Audit Status Fitur Saat Ini
-
-### A. Fitur yang SUDAH Murni Manual / Rumus Sendiri (Aman) ✅
-
-Fitur-fitur di bawah ini sudah menggunakan rumus matematis langsung tanpa fungsi instan OpenCV:
-
-| Fitur | Implementasi Saat Ini | Penjelasan Matematis ke Dosen |
-| :--- | :--- | :--- |
-| **Grayscale: Luminance** | `0.299*R + 0.587*G + 0.114*B` | Standar ITU-R BT.601 yang disesuaikan dengan kurva sensitivitas fotoreseptor mata manusia terhadap warna hijau. |
-| **Grayscale: Average** | `(R + G + B) / 3` | Rata-rata aritmatika sederhana ketiga kanal warna RGB. |
-| **Grayscale: Lightness** | `(max(R,G,B) + min(R,G,B)) / 2` | Desaturasi berdasarkan nilai extremum rentang intensitas. |
-| **Brightness** | `np.clip(I.astype(int16) + beta, 0, 255)` | Penjumlahan skalar linear dengan *safe clamping* dan casting 16-bit untuk mencegah cacat *wrap-around* / *overflow*. |
-| **Negative** | `255 - I` | Pembalikan nilai intensitas komplementer terhadap nilai maksimum 8-bit. |
-| **Color Dodge (Sketch)** | `(gray * 255) // max(1, 255 - blurred)` | Pembagian intensitas citra asli dengan inversi citra kabur; guard `max(1, ...)` mencegah *division-by-zero*. |
-| **Unsharp Masking** | `I_in + alpha * (I_in - I_blur)` | Ekstraksi komponen frekuensi tinggi $(I - I_{\text{blur}})$ yang dikalikan faktor penguat $\alpha$ lalu dijumlahkan kembali ke citra asli. |
+Sebelum menulis atau mengubah kode:
+1. Audit seluruh pemanggilan `cv2.` di direktori `backend/` terlebih dahulu.
+2. Pertahankan seluruh kontrak API FastAPI (endpoint, nama parameter, tipe payload, dan format respons) agar frontend tidak terdampak.
+3. Pertahankan mekanisme pelestarian kanal alpha (`alpha_utils.py`) pada gambar PNG transparan.
+4. Ikuti seluruh batasan teknis, spesifikasi modul, dan strategi pengujian di bawah ini secara ketat.
 
 ---
 
-### B. Fitur yang MASIH Memakai Library OpenCV (Rentan Evaluasi) ⚠️
+## 1. Batasan Keras (Hard Constraints)
 
-Fitur-fitur ini masih menggunakan fungsi *black-box* OpenCV yang berisiko dipertanyakan dosen saat demo:
+### A. Batasan Penggunaan OpenCV
+Penggunaan OpenCV (`cv2`) di seluruh proyek **hanya diizinkan** untuk proses I/O file:
+- `cv2.imdecode(...)` untuk membaca byte gambar menjadi array NumPy.
+- `cv2.imencode(...)` untuk mengekspor array NumPy menjadi byte PNG/JPEG/BMP.
 
-| Fitur | Fungsi OpenCV Saat Ini | Rumus / Algoritma Manual Seharusnya | Risiko Ditanya Dosen |
-| :--- | :--- | :--- | :--- |
-| **Mirroring (Geometri)** | `cv2.flip(img, code)` | **Slicing Matriks NumPy:**<br>• Horizontal: `img[:, ::-1]`<br>• Vertikal: `img[::-1, :]`<br>• Keduanya: `img[::-1, ::-1]` | Sangat dasar. Membalik matriks menggunakan library luar menunjukkan ketergantungan yang tidak perlu. |
-| **Thresholding (Biner, Inv, Truncate, To Zero)** | `cv2.threshold(...)` | **Kondisional NumPy:**<br>• Binary: `np.where(I > T, 255, 0)`<br>• Inv: `np.where(I > T, 0, 255)`<br>• Trunc: `np.where(I > T, T, I)`<br>• ToZero: `np.where(I > T, I, 0)` | Operasi *point processing* element-wise sederhana yang seharusnya ditulis murni dari definisi matematika ambang batas. |
-| **Otsu Thresholding** | `cv2.threshold(..., cv2.THRESH_OTSU)` | **Pencarian Ambang Bimodal:**<br>Mencari nilai $T \in [0, 255]$ yang memaksimalkan varians antar-kelas:<br>$$\sigma_b^2(T) = \omega_0(T) \cdot \omega_1(T) \cdot (\mu_0(T) - \mu_1(T))^2$$ | Pertanyaan ujian teori klasik: dosen sering meminta mahasiswa menjelaskan tahapan pencarian $T$ dari histogram. |
-| **Histogram Equalization** | `cv2.equalizeHist(...)` | **CDF (Cumulative Distribution Function):**<br>1. Hitung histogram frekuensi $h(v)$<br>2. Hitung kumulatif: $CDF(v) = \sum_{i=0}^v h(i)$<br>3. Normalisasi: $T(v) = \text{round}\left(\frac{CDF(v) - CDF_{\min}}{(M \times N) - CDF_{\min}} \times 255\right)$<br>4. Transformasikan nilai piksel dengan lookup table. | Dosen hampir pasti menanyakan rumus CDF dan bagaimana distribusi probabilitas kumulatif meratakan histogram. |
-| **Filter Spasial 2D (Konvolusi)** | `cv2.filter2D(...)` | **Manual 2D Convolution:**<br>1. *Padding* pada tepi citra (replicate / reflect)<br>2. *Sliding window* patch $k \times k$<br>3. Perkalian titik elemen matriks (*element-wise product*) & penjumlahan $\sum(W \cdot K)$<br>4. *Clipping* ke rentang $[0, 255]$. | Konvolusi adalah fondasi utama PCD. Dosen ingin melihat loop/vektorisasi perhitungan perkalian kernel dengan piksel tetangga. |
-| **Averaging Blur** | `cv2.blur(...)` | Konvolusi manual dengan kernel matriks seragam berbobot $K_{i,j} = \frac{1}{k \times k}$. | Dosen ingin melihat pembuatan kernel kotak dan perata-rataan nilai tetangga. |
-| **Gaussian Blur** | `cv2.GaussianBlur(...)` | Buat matriks Gaussian 2D manual berbobot kurva lonceng:<br>$$G(x, y) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2+y^2}{2\sigma^2}}$$ lalu dinormalisasi ($\sum G = 1$) dan dikonvolusikan ke citra. | Membuktikan pemahaman parameter $\sigma$ (standar deviasi sebaran Gaussian). |
-| **Median Blur** | `cv2.medianBlur(...)` | Mengambil seluruh piksel tetangga dalam jendela $k \times k$, mengurutkan nilai (*sorting*), dan mengambil nilai median (tengah). | Teori non-linear filter peredam derau *salt-and-pepper* tanpa mengaburkan garis tepi objek. |
-| **Sobel & Prewitt** | `cv2.Sobel()`, `cv2.filter2D()` | Konvolusi manual dengan kernel turunan pertama arah horizontal ($G_x$) dan vertikal ($G_y$), kemudian hitung magnitudo gradien:<br>$$G = \sqrt{G_x^2 + G_y^2}$$ | Dosen sering meminta menunjukkan arah matriks gradien diferensial. |
-| **Laplacian** | `cv2.Laplacian(...)` | Konvolusi manual dengan kernel turunan kedua Laplacian isotropik 4-tetangga atau 8-tetangga:<br>$$K = \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}$$ | Membedakan turunan pertama (Sobel) dengan turunan kedua (Laplacian). |
-| **Canny Edge Detection** | `cv2.Canny(...)` | Implementasi 5 tahapan Canny:<br>1. Gaussian Filter Smoothing<br>2. Gradien Sobel & Arah Sudut $\theta$<br>3. *Non-Maximum Suppression* (NMS)<br>4. *Double Thresholding* (Strong & Weak edges)<br>5. *Edge Tracking by Hysteresis* | Canny bawaan OpenCV menyembunyikan logika NMS dan Hysteresis yang menjadi poin penting penilaian algoritma. |
-| **Kalkulasi Histogram** | `cv2.calcHist(...)` | Menghitung frekuensi nilai kemunculan intensitas $0 \dots 255$ menggunakan `np.bincount(channel.flatten(), minlength=256)`. | Menghitung frekuensi nilai adalah dasar statistik citra yang sangat mudah dibuat manual. |
+**Dilarang keras** menggunakan fungsi OpenCV lainnya di jalur pemrosesan citra, termasuk namun tidak terbatas pada:
+- `cv2.cvtColor` (ganti dengan slicing `img[..., ::-1]` untuk BGR/RGB, rumus Luminance untuk Grayscale, dan matriks BT.601 manual untuk RGB/YCrCb).
+- `cv2.flip`, `cv2.threshold`, `cv2.equalizeHist`, `cv2.filter2D`, `cv2.blur`, `cv2.GaussianBlur`, `cv2.medianBlur`, `cv2.bilateralFilter`, `cv2.Sobel`, `cv2.Laplacian`, `cv2.Canny`, dan `cv2.calcHist`.
+
+### B. Batasan Performa & Vektorisasi (Backend Web)
+- Aplikasi menerima unggahan citra hingga 10 MB.
+- **Dilarang** menggunakan *nested Python loop* per piksel (`for y in range(h): for x in range(w):`) pada operasi filter spasial, thresholding, median, bilateral, maupun NMS Canny.
+- Gunakan vektorisasi NumPy, array slicing, loop pada dimensi kernel (`k_h x k_w`), atau `np.lib.stride_tricks.sliding_window_view`.
+- Pengecualian loop eksplisit hanya diizinkan pada *Edge Tracking by Hysteresis* (Canny) menggunakan antrean `collections.deque` (BFS) yang hanya mengunjungi piksel tepi (*strong/weak edges*).
 
 ---
 
-## 3. Cetak Biru Teknis Refaktorisasi (From Scratch)
+## 2. Audit Fitur & Ruang Lingkup Refaktorisasi
 
-Rencana struktur modul agar kode bersih, modular, dan siap dipresentasikan:
+### A. Sudah Manual (Pertahankan & Verifikasi)
+- **Grayscale** (Luminance `0.299R + 0.587G + 0.114B`, Average `(R+G+B)/3`, Lightness `(max+min)/2`)
+- **Brightness** (`np.clip(I.astype(np.int16) + beta, 0, 255).astype(np.uint8)`)
+- **Negative** (`255 - I`)
 
-```
+### B. Semi-Manual (Perbaiki Dependensi & Guard Tipe Data)
+- **Unsharp Masking (`ops_detail.py`):** Pastikan pemanggilan blur di dalamnya menggunakan `Gaussian Blur` manual dari `ops_blur.py`, bukan `cv2.GaussianBlur`. Hitung dalam `float64`, lalu `np.clip(np.round(...), 0, 255).astype(np.uint8)`.
+- **Pencil Sketch / Color Dodge (`ops_detail.py`):** Pastikan proses blur menggunakan `Gaussian Blur` manual. Hindari *overflow* `uint8` pada perkalian `gray * 255` dengan melakukan casting ke `np.float64` (atau `np.int32`), gunakan `np.maximum(1.0, 255.0 - blurred)` sebagai penyebut, lalu clip ke `[0, 255]` dan cast ke `np.uint8`.
+
+### C. Wajib Direfaktor Total ke Pure NumPy
+1. **Konversi Warna** (pengganti `cv2.cvtColor`)
+2. **Mirroring** (`ops_geometry.py`)
+3. **Thresholding: Binary, Binary Inv, Truncate, To Zero** (`ops_point.py`)
+4. **Otsu Thresholding** (`ops_point.py`)
+5. **Histogram Equalization** (`ops_point.py`)
+6. **Core Konvolusi 2D & Standard Filter 2D** (`core_conv.py`, `ops_blur.py`)
+7. **Averaging Blur** (`ops_blur.py`)
+8. **Gaussian Blur** (`ops_blur.py`)
+9. **Median Blur** (`ops_blur.py`)
+10. **Bilateral Filter** (`ops_blur.py`)
+11. **Sobel & Prewitt Operator** (`ops_detail.py`)
+12. **Laplacian** (`ops_detail.py`)
+13. **Canny Edge Detection (5-stage)** (`ops_detail.py`)
+14. **Kalkulasi Histogram** (`histogram.py`)
+
+---
+
+## 3. Cetak Biru Teknis Per Modul
+
+Struktur target di `backend/app/services/`:
+
+```text
 backend/app/services/
-├── core_conv.py          # [BARU] Fungsi konvolusi 2D manual (padding + sliding window / vectorization)
-├── ops_point.py          # Refaktor: Thresholding manual (np.where), Otsu manual, Equalization CDF manual
-├── ops_blur.py           # Refaktor: Pembuatan kernel Gaussian manual, Averaging manual, Median sort manual
-├── ops_detail.py         # Refaktor: Sobel, Prewitt, Laplacian, dan Canny 5-stage manual
-├── ops_geometry.py       # Refaktor: Mirroring murni array slicing (img[:, ::-1])
-├── histogram.py          # Refaktor: Histogram manual via np.bincount
-└── alpha_utils.py        # Helper handling transparansi PNG
-```
+├── core_conv.py      # [BARU] Konvolusi 2D manual (2D/3D) + helper konversi warna manual
+├── ops_geometry.py   # Mirroring via array slicing (contiguous)
+├── ops_point.py      # Thresholding manual, Otsu (float64), Equalization CDF manual
+├── ops_blur.py       # Standard Filter 2D, Averaging, Gaussian, Median, Bilateral manual
+├── ops_detail.py     # Unsharp Masking, Pencil Sketch, Sobel, Prewitt, Laplacian, Canny 5-stage
+├── histogram.py      # Histogram via np.bincount
+└── alpha_utils.py    # Pertahankan handling transparansi PNG
 
-### A. Konvolusi 2D Manual (`core_conv.py`)
-Inti seluruh filter spasial adalah fungsi konvolusi manual:
-```python
-def manual_convolve2d(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    """Konvolusi 2D manual dengan padding refleksi dan kalkulasi titik tetangga."""
-    k_h, k_w = kernel.shape
-    pad_h, pad_w = k_h // 2, k_w // 2
-    
-    # 1. Padding agar dimensi citra tidak menyusut
-    padded = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='reflect')
-    
-    # 2. Sliding window konvolusi
-    h, w = image.shape
-    output = np.zeros((h, w), dtype=np.float32)
-    for r in range(k_h):
-        for c in range(k_w):
-            output += padded[r : r + h, c : c + w] * kernel[r, c]
-            
-    return np.clip(output, 0, 255).astype(np.uint8)
-```
+A. core_conv.py (Konvolusi 2D & Utilitas Warna)Aturan Penting:Fungsi manual_convolve2d TIDAK BOLEH melakukan np.clip(0, 255) atau casting ke uint8 di dalam fungsi, karena operasi gradien (Sobel, Prewitt, Laplacian) membutuhkan nilai negatif mentah.Harus mendukung citra 2D (H, W) maupun 3D (H, W, C).Sediakan parameter flip_kernel: bool = True untuk membalik kernel 180 derajat (kernel[::-1, ::-1]) sesuai definisi matematis konvolusi murni.Pythonimport numpy as np
 
-### B. Histogram Equalization Manual (`ops_point.py`)
-Menerapkan transformasi fungsi distribusi kumulatif:
-```python
-def manual_equalize_channel(channel: np.ndarray) -> np.ndarray:
-    # 1. Hitung histogram frekuensi
-    hist = np.bincount(channel.flatten(), minlength=256)
-    
-    # 2. Hitung Cumulative Distribution Function (CDF)
-    cdf = hist.cumsum()
-    
-    # 3. Mask nilai nol & normalisasi ke 0-255
-    cdf_m = np.ma.masked_equal(cdf, 0)
-    cdf_m = (cdf_m - cdf_m.min()) * 255 / (channel.size - cdf_m.min())
-    lookup_table = np.ma.filled(cdf_m, 0).astype(np.uint8)
-    
-    # 4. Transformasikan piksel citra via lookup table
-    return lookup_table[channel]
-```
+def manual_convolve2d(
+    image: np.ndarray,
+    kernel: np.ndarray,
+    mode: str = "reflect",
+    flip_kernel: bool = True,
+) -> np.ndarray:
+    """Konvolusi 2D manual untuk citra 2D (H, W) dan 3D (H, W, C). Mengembalikan array float64 tanpa clipping."""
+    img = image.astype(np.float64)
+    k = np.asarray(kernel, dtype=np.float64)
+    if flip_kernel:
+        k = k[::-1, ::-1]
 
-### C. Otsu's Thresholding Manual (`ops_point.py`)
-Mencari ambang optimal bimodal:
-```python
-def manual_otsu(gray: np.ndarray) -> tuple[np.ndarray, float]:
-    hist = np.bincount(gray.flatten(), minlength=256).astype(np.float32)
-    total_pixels = gray.size
-    current_max = 0.0
-    threshold = 0
-    
-    weight_bg = 0.0
-    sum_bg = 0.0
-    sum_total = np.dot(np.arange(256), hist)
-    
+    k_h, k_w = k.shape
+    pad_top = k_h // 2
+    pad_bottom = k_h - 1 - pad_top
+    pad_left = k_w // 2
+    pad_right = k_w - 1 - pad_left
+
+    if img.ndim == 2:
+        h, w = img.shape
+        padded = np.pad(img, ((pad_top, pad_bottom), (pad_left, pad_right)), mode=mode)
+        output = np.zeros((h, w), dtype=np.float64)
+        for r in range(k_h):
+            for c in range(k_w):
+                if k[r, c] != 0.0:
+                    output += padded[r : r + h, c : c + w] * k[r, c]
+        return output
+
+    if img.ndim == 3:
+        h, w, ch = img.shape
+        padded = np.pad(img, ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0)), mode=mode)
+        output = np.zeros((h, w, ch), dtype=np.float64)
+        for r in range(k_h):
+            for c in range(k_w):
+                if k[r, c] != 0.0:
+                    output += padded[r : r + h, c : c + w, :] * k[r, c]
+        return output
+
+    raise ValueError(f"Unsupported image dimensions: {img.ndim}")
+Helper Konversi Warna Manual (pengganti cv2.cvtColor):BGR <-> RGB: img[..., ::-1].copy()BGR -> Grayscale (BT.601): np.clip(np.round(0.114 * B + 0.587 * G + 0.299 * R), 0, 255).astype(np.uint8)Jika Equalization pada gambar berwarna menggunakan ruang warna YCrCb (cek perilaku kode saat ini), implementasikan konversi BGR <-> YCrCb secara manual menggunakan rumus matriks ITU-R BT.601:$Y = 0.299R + 0.587G + 0.114B$$C_r = (R - Y) \cdot 0.713 + 128$$C_b = (B - Y) \cdot 0.564 + 128$Invers:$R = Y + 1.403(C_r - 128)$$G = Y - 0.714(C_r - 128) - 0.344(C_b - 128)$$B = Y + 1.773(C_b - 128)$B. ops_geometry.py (Mirroring)Horizontal: np.ascontiguousarray(img[:, ::-1])Vertikal: np.ascontiguousarray(img[::-1, :])Keduanya: np.ascontiguousarray(img[::-1, ::-1])Catatan: Wajib gunakan .copy() atau np.ascontiguousarray(...) agar array tidak memiliki negative strides saat diteruskan ke cv2.imencode.C. ops_point.py (Thresholding, Otsu, Equalization)Thresholding Manual (np.where):Binary: np.where(gray > T, 255, 0).astype(np.uint8)Binary Inv: np.where(gray > T, 0, 255).astype(np.uint8)Truncate: np.where(gray > T, T, gray).astype(np.uint8)To Zero: np.where(gray > T, gray, 0).astype(np.uint8)To Zero Inv (jika ada): np.where(gray > T, 0, gray).astype(np.uint8)Otsu Thresholding Manual (float64 & Probabilitas):
+Gunakan probabilitas $\omega_0(T), \omega_1(T)$ dalam float64 agar terhindar dari kehilangan presisi pada citra resolusi tinggi:Pythondef manual_otsu(gray: np.ndarray) -> tuple[np.ndarray, float]:
+    hist = np.bincount(gray.ravel(), minlength=256).astype(np.float64)
+    total = float(gray.size)
+    if total == 0:
+        return gray.copy(), 0.0
+
+    probs = hist / total
+    bins = np.arange(256, dtype=np.float64)
+    total_mean = float(np.dot(bins, probs))
+
+    omega_bg = 0.0
+    mu_bg_acc = 0.0
+    max_var = -1.0
+    best_t = 0
+
     for t in range(256):
-        weight_bg += hist[t]
-        if weight_bg == 0:
+        omega_bg += probs[t]
+        if omega_bg <= 0.0:
             continue
-        weight_fg = total_pixels - weight_bg
-        if weight_fg == 0:
+        omega_fg = 1.0 - omega_bg
+        if omega_fg <= 0.0:
             break
-            
-        sum_bg += t * hist[t]
-        mean_bg = sum_bg / weight_bg
-        mean_fg = (sum_total - sum_bg) / weight_fg
-        
-        # Varians antar kelas
-        variance_between = weight_bg * weight_fg * ((mean_bg - mean_fg) ** 2)
-        if variance_between > current_max:
-            current_max = variance_between
-            threshold = t
-            
-    binary = np.where(gray > threshold, 255, 0).astype(np.uint8)
-    return binary, float(threshold)
-```
 
----
+        mu_bg_acc += t * probs[t]
+        mean_bg = mu_bg_acc / omega_bg
+        mean_fg = (total_mean - mu_bg_acc) / omega_fg
 
-## 4. Batasan Penggunaan OpenCV yang Diperbolehkan
+        var_between = omega_bg * omega_fg * ((mean_bg - mean_fg) ** 2)
+        if var_between > max_var:
+            max_var = var_between
+            best_t = t
 
-Dalam proyek akademik ini, library OpenCV dibatasi hanya pada:
-1. `cv2.imdecode(...)`: Mengubah raw byte upload dari format PNG/JPEG menjadi array NumPy saat request masuk.
-2. `cv2.imencode(...)`: Melakukan encode array NumPy menjadi format PNG/JPEG/BMP saat ekspor hasil olahan.
+    binary = np.where(gray > best_t, 255, 0).astype(np.uint8)
+    return binary, float(best_t)
+Histogram Equalization Manual (dengan Guard Citra Solid):Pythondef manual_equalize_channel(channel: np.ndarray) -> np.ndarray:
+    if channel.size == 0:
+        return channel.copy()
 
-> [!NOTE]
-> Seluruh kalkulasi nilai piksel citra (aritmatika, penajaman, pengaburan, segmentasi, deteksi tepi, dan statistik) dijalankan **100% menggunakan kode algoritma kita sendiri**.
+    hist = np.bincount(channel.ravel(), minlength=256)
+    cdf = hist.cumsum()
+    nonzero = cdf[cdf > 0]
+    if nonzero.size == 0:
+        return channel.copy()
 
----
+    cdf_min = int(nonzero[0])
+    denom = channel.size - cdf_min
+    if denom <= 0:
+        # Guard untuk citra satu warna solid (semua piksel bernilai sama)
+        return channel.copy()
 
-## 5. Rencana Langkah Kerja (Roadmap Eksekusi)
+    lut = np.round(np.maximum(cdf - cdf_min, 0) * 255.0 / denom).astype(np.uint8)
+    return lut[channel]
+Untuk citra berwarna (3 kanal): cocokkan dengan perilaku aplikasi sebelumnya (ideal: konversi manual ke YCrCb -> equalize kanal Y saja -> konversi balik ke BGR agar rona warna tidak rusak).D. ops_blur.py (Standard Filter 2D, Averaging, Gaussian, Median, Bilateral)Standard Filter 2D: Panggil manual_convolve2d(image, kernel) lalu np.clip(np.round(out), 0, 255).astype(np.uint8).Averaging Blur: Buat kernel np.ones((k, k), dtype=np.float64) / (k * k), panggil manual_convolve2d, lalu clip & cast ke uint8.Gaussian Blur:Jika sigma <= 0, gunakan rumus auto-sigma standar: sigma = 0.3 * ((k - 1) * 0.5 - 1) + 0.8.Buat grid koordinat berpusat di 0 (ax = np.arange(k) - (k - 1) / 2.0), hitung:$$G(x, y) = \exp\left(-\frac{x^2 + y^2}{2\sigma^2}\right)$$lalu normalisasi kernel /= kernel.sum().Panggil manual_convolve2d, lalu clip & cast ke uint8.Median Blur (Vektorisasi Memori-Efisien):Gunakan np.pad(..., mode="reflect") dan np.lib.stride_tricks.sliding_window_view(padded, (k, k)).Untuk citra 3D (H, W, C), proses per kanal (for ch in range(C)) untuk menjaga puncak penggunaan RAM tetap aman pada gambar besar, lalu hitung np.median(windows, axis=(-2, -1)) dan cast ke uint8.Bilateral Filter (Vektorisasi Loop Dimensi Kernel):Pastikan diameter d ganjil (if d <= 0, turunkan dari sigma_space misal d = max(3, int(2 * round(2 * sigma_space) + 1)) dengan batas atas wajar sesuai parameter API; jika genap, tambah 1).Guard jika sigma_color <= 0 atau sigma_space <= 0: kembalikan image.copy().Implementasi vektorisasi (bebas loop (H, W)):Pythondef manual_bilateral_filter(
+    image: np.ndarray, d: int, sigma_color: float, sigma_space: float
+) -> np.ndarray:
+    if sigma_color <= 0 or sigma_space <= 0 or d <= 1:
+        return image.copy()
+    if d % 2 == 0:
+        d += 1
 
-1. **Tahap 1:** Buat modul `core_conv.py` berisi fungsi konvolusi manual 2D.
-2. **Tahap 2:** Refaktor `ops_geometry.py` (Mirroring) ke slicing matriks NumPy.
-3. **Tahap 3:** Refaktor `ops_point.py` (Thresholding biner manual, Otsu variance loop manual, dan Equalization CDF manual).
-4. **Tahap 4:** Refaktor `ops_blur.py` (Perhitungan rumus matriks Gauss, matriks box averaging, dan sorting median window).
-5. **Tahap 5:** Refaktor `ops_detail.py` (Sobel, Prewitt, Laplacian, dan tahapan Canny).
-6. **Tahap 6:** Refaktor `histogram.py` menggunakan `np.bincount`.
-7. **Tahap 7:** Jalankan `pytest` (124 unit test) dan pastikan seluruh pengujian tetap lulus hijau dengan akurasi yang identik.
+    radius = d // 2
+    img_f = image.astype(np.float64)
+    two_ss_sq = 2.0 * (sigma_space ** 2)
+    two_sc_sq = 2.0 * (sigma_color ** 2)
+
+    if img_f.ndim == 2:
+        h, w = img_f.shape
+        padded = np.pad(img_f, ((radius, radius), (radius, radius)), mode="reflect")
+        num = np.zeros((h, w), dtype=np.float64)
+        den = np.zeros((h, w), dtype=np.float64)
+    else:
+        h, w, ch = img_f.shape
+        padded = np.pad(img_f, ((radius, radius), (radius, radius), (0, 0)), mode="reflect")
+        num = np.zeros((h, w, ch), dtype=np.float64)
+        den = np.zeros((h, w, 1), dtype=np.float64)
+
+    for dr in range(-radius, radius + 1):
+        for dc in range(-radius, radius + 1):
+            spatial_w = np.exp(-(dr * dr + dc * dc) / two_ss_sq)
+            if img_f.ndim == 2:
+                neighbor = padded[radius + dr : radius + dr + h, radius + dc : radius + dc + w]
+                diff_sq = (neighbor - img_f) ** 2
+            else:
+                neighbor = padded[radius + dr : radius + dr + h, radius + dc : radius + dc + w, :]
+                diff_sq = np.sum((neighbor - img_f) ** 2, axis=2, keepdims=True)
+
+            weight = spatial_w * np.exp(-diff_sq / two_sc_sq)
+            num += weight * neighbor
+            den += weight
+
+    out = num / np.maximum(den, 1e-12)
+    return np.clip(np.round(out), 0, 255).astype(np.uint8)
+E. ops_detail.py (Sobel, Prewitt, Laplacian, Canny)Sobel & Prewitt:Konversi ke grayscale secara manual jika input 3 kanal (sesuaikan dengan perilaku API saat ini).Kernel Sobel 3x3:$K_x = \begin{bmatrix}-1 & 0 & 1 \\ -2 & 0 & 2 \\ -1 & 0 & 1\end{bmatrix}$,$K_y = \begin{bmatrix}-1 & -2 & -1 \\ 0 & 0 & 0 \\ 1 & 2 & 1\end{bmatrix}$.Kernel Prewitt 3x3:$K_x = \begin{bmatrix}-1 & 0 & 1 \\ -1 & 0 & 1 \\ -1 & 0 & 1\end{bmatrix}$,$K_y = \begin{bmatrix}-1 & -1 & -1 \\ 0 & 0 & 0 \\ 1 & 1 & 1\end{bmatrix}$.Hitung gx = manual_convolve2d(gray, Kx) dan gy = manual_convolve2d(gray, Ky) (tanpa clipping).Hitung magnitudo $G = \sqrt{G_x^2 + G_y^2}$ (atau arah tunggal jika parameter API mendukung dx/dy atau direction).Petakan ke 8-bit dengan np.clip(np.round(mag), 0, 255).astype(np.uint8) (atau ikuti aturan normalisasi yang sudah diharapkan unit test).Laplacian:Kernel 4-tetangga [[0, 1, 0], [1, -4, 1], [0, 1, 0]] atau 8-tetangga [[1, 1, 1], [1, -8, 1], [1, 1, 1]] sesuai parameter.Hitung resp = manual_convolve2d(gray, kernel) (tanpa clipping).Petakan ke 8-bit dengan nilai absolut np.clip(np.round(np.abs(resp)), 0, 255).astype(np.uint8).Canny Edge Detection (5 Tahap Murni):Tahap 1 (Smoothing): Konversi grayscale manual + Gaussian Blur manual (k=5, sigma=1.4).Tahap 2 (Gradien & Arah): Hitung gx, gy dengan Sobel manual; mag = np.hypot(gx, gy); angle = np.rad2deg(np.arctan2(gy, gx)) % 180.0.Tahap 3 (Non-Maximum Suppression - Vektorisasi Penuh):
+Kuantisasi sudut ke 4 arah (0°, 45°, 90°, 135°). Pad mag sebesar 1 piksel (mode="constant", constant_values=0). Bandingkan mag dengan dua tetangga searah gradien menggunakan array slicing dan boolean mask (dilarang memakai loop (H, W)):Arah 0° (angle < 22.5 atau angle >= 157.5): bandingkan kiri (r, c-1) & kanan (r, c+1).Arah 45° (22.5 <= angle < 67.5): bandingkan kanan-atas (r-1, c+1) & kiri-bawah (r+1, c-1) (pastikan konsisten dengan konvensi sumbu-y ke bawah dan tanda kernel Sobel yang dipakai).Arah 90° (67.5 <= angle < 112.5): bandingkan atas (r-1, c) & bawah (r+1, c).Arah 135° (112.5 <= angle < 157.5): bandingkan kiri-atas (r-1, c-1) & kanan-bawah (r+1, c+1).
+Pertahankan nilai mag hanya jika mag >= neighbor_1 dan mag >= neighbor_2, selain itu set ke 0.Tahap 4 (Double Thresholding):strong = nms >= high_thresholdweak = (nms >= low_threshold) & (~strong)Tahap 5 (Edge Tracking by Hysteresis - BFS):
+Inisialisasi result = np.zeros_like(gray, dtype=np.uint8) dan set result[strong] = 255.
+Masukkan seluruh koordinat np.argwhere(strong) ke collections.deque. Lakukan BFS 8-tetangga: setiap tetangga yang bernilai weak dan belum berstatus 255 diubah menjadi 255 lalu dimasukkan ke antrean.F. histogram.pyGanti cv2.calcHist dengan np.bincount(channel.ravel(), minlength=256).tolist() (atau tipe array/int sesuai skema respons JSON yang ada).4. Roadmap Eksekusi & Kriteria VerifikasiTahap 1: Buat core_conv.py (konvolusi 2D/3D + helper konversi warna manual).Tahap 2: Refaktor ops_geometry.py dan histogram.py.Tahap 3: Refaktor ops_point.py (Thresholding, Otsu, Equalization).Tahap 4: Refaktor ops_blur.py (Standard Filter 2D, Averaging, Gaussian, Median, Bilateral).Tahap 5: Refaktor ops_detail.py (Unsharp Masking, Pencil Sketch, Sobel, Prewitt, Laplacian, Canny).Tahap 6 (Audit Statis OpenCV): Jalankan pencarian cv2. di seluruh backend/app/. Kriteria lulus: tidak ada satu pun panggilan cv2. selain cv2.imdecode dan cv2.imencode.Tahap 7 (Pengujian pytest & Toleransi):Jalankan seluruh test suite (pytest).Catatan Penting tentang Akurasi: Implementasi manual NumPy dapat memiliki selisih kecil (misalnya 1–5 level intensitas pada piksel tertentu) dibanding OpenCV karena OpenCV menggunakan aritmatika fixed-point internal, L1-norm default pada Canny, atau aturan border/rounding yang sedikit berbeda.Jika terdapat unit test lama yang membandingkan output secara bit-exact terhadap fungsi cv2.*, perbarui assertion tersebut menjadi validasi berbasis toleransi (np.allclose / batas MAE) serta validasi properti matematis (dimensi, dtype == np.uint8, rentang [0, 255], konsistensi kanal alpha, dan edge cases seperti gambar satu warna solid).Tambahkan uji khusus untuk Bilateral Filter dan edge case citra solid (0 varians) jika belum tercakup.
