@@ -24,6 +24,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Processing-Time-Ms", "X-Otsu-Threshold"],
 )
 
 app.include_router(images.router)

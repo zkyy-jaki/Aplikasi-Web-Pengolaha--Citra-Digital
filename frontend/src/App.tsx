@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { LeftSidebar } from '@/components/layout/LeftSidebar';
 import { CenterStage } from '@/components/layout/CenterStage';
@@ -6,9 +6,11 @@ import { RightInspector } from '@/components/layout/RightInspector';
 import { ExportModal } from '@/components/modals/ExportModal';
 import { ToastError } from '@/components/common/ToastError';
 import { useImageWorkspace } from '@/hooks/useImageWorkspace';
+import { useWebcam } from '@/hooks/useWebcam';
 
 export function App() {
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
 
   const {
     sessionId,
@@ -30,6 +32,8 @@ export function App() {
     isProcessing,
     errorMessage,
     dismissError,
+    reportError,
+    setOtsuCalculatedT,
     setCursorPos,
     setSplitPosition,
     setViewMode,
@@ -41,7 +45,37 @@ export function App() {
     handleApply,
     handleCancel,
     handleHistoryAction,
-  } = useImageWorkspace();
+  } = useImageWorkspace(isCameraActive);
+
+  const webcam = useWebcam({
+    activeOp,
+    draftParams,
+    onSnapshotCaptured: handleUploadFile,
+    onError: reportError,
+    onOtsuDetected: setOtsuCalculatedT,
+    onOpenChange: setIsCameraActive,
+  });
+
+  const handleSelectFileWithCameraClose = useCallback(
+    (file: File) => {
+      if (webcam.isCameraOpen) {
+        webcam.closeCamera();
+      }
+      void handleUploadFile(file);
+    },
+    [webcam, handleUploadFile]
+  );
+
+  const handleToggleCamera = useCallback(() => {
+    if (webcam.isCameraOpen) {
+      webcam.closeCamera();
+    } else {
+      if (viewMode === 'split') {
+        setViewMode('single');
+      }
+      void webcam.openCamera();
+    }
+  }, [webcam, viewMode, setViewMode]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -53,23 +87,27 @@ export function App() {
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if (metadata && historyIndex > 0) handleHistoryAction('undo');
+        if (!webcam.isCameraOpen && metadata && historyIndex > 0) handleHistoryAction('undo');
       } else if (
         ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
       ) {
         e.preventDefault();
-        if (metadata && historyIndex < historyList.length - 1) handleHistoryAction('redo');
+        if (!webcam.isCameraOpen && metadata && historyIndex < historyList.length - 1) {
+          handleHistoryAction('redo');
+        }
       } else if (e.key === 'Escape') {
         e.preventDefault();
         if (isExportOpen) {
           setIsExportOpen(false);
+        } else if (webcam.isCameraOpen) {
+          webcam.closeCamera();
         } else if (metadata) {
           handleCancel();
         }
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (metadata) {
+        if (!webcam.isCameraOpen && metadata) {
           handleApply();
         }
       }
@@ -77,19 +115,32 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleHistoryAction, handleCancel, handleApply, isExportOpen, metadata, historyIndex, historyList.length]);
+  }, [
+    handleHistoryAction,
+    handleCancel,
+    handleApply,
+    isExportOpen,
+    webcam,
+    metadata,
+    historyIndex,
+    historyList.length,
+  ]);
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-canvas text-textPrimary select-none">
       {/* Top Bar */}
       <TopBar
         metadata={metadata}
+        isCameraOpen={webcam.isCameraOpen}
+        isCameraStarting={webcam.isStarting}
+        isLiveFilter={webcam.isLiveFilter}
         viewMode={viewMode}
         zoom={zoom}
-        canUndo={!!metadata && historyIndex > 0}
-        canRedo={!!metadata && historyIndex < historyList.length - 1}
-        canReset={!!metadata && historyList.length > 1}
-        onSelectFile={handleUploadFile}
+        canUndo={!webcam.isCameraOpen && !!metadata && historyIndex > 0}
+        canRedo={!webcam.isCameraOpen && !!metadata && historyIndex < historyList.length - 1}
+        canReset={!webcam.isCameraOpen && !!metadata && historyList.length > 1}
+        onSelectFile={handleSelectFileWithCameraClose}
+        onToggleCamera={handleToggleCamera}
         onSetViewMode={setViewMode}
         onSetZoom={setZoom}
         onUndo={() => handleHistoryAction('undo')}
@@ -117,7 +168,29 @@ export function App() {
           cursorPos={cursorPos}
           processingTimeMs={processingTimeMs}
           isProcessing={isProcessing}
-          onSelectFile={handleUploadFile}
+          camera={{
+            isCameraOpen: webcam.isCameraOpen,
+            isStarting: webcam.isStarting,
+            isCapturing: webcam.isCapturing,
+            isLiveFilter: webcam.isLiveFilter,
+            isMirrored: webcam.isMirrored,
+            liveResolution: webcam.liveResolution,
+            devices: webcam.devices,
+            selectedDeviceId: webcam.selectedDeviceId,
+            streamResolution: webcam.streamResolution,
+            liveProcessingMs: webcam.liveProcessingMs,
+            liveFps: webcam.liveFps,
+            onOpenCamera: () => void webcam.openCamera(),
+            onCloseCamera: webcam.closeCamera,
+            onToggleLiveFilter: webcam.toggleLiveFilter,
+            onToggleMirror: webcam.toggleMirror,
+            onSetLiveResolution: webcam.setLiveResolution,
+            onSwitchDevice: webcam.switchDevice,
+            onCaptureSnapshot: () => void webcam.captureSnapshot(),
+          }}
+          videoRef={webcam.videoRef}
+          liveCanvasRef={webcam.liveCanvasRef}
+          onSelectFile={handleSelectFileWithCameraClose}
           onLoadSample={handleLoadSample}
           onSplitChange={setSplitPosition}
           onCursorMove={setCursorPos}
@@ -134,6 +207,8 @@ export function App() {
           otsuCalculatedT={otsuCalculatedT}
           isProcessing={isProcessing}
           hasImage={!!metadata}
+          isCameraOpen={webcam.isCameraOpen}
+          isLiveFilter={webcam.isLiveFilter}
           onUpdateParams={handleUpdateParams}
           onApply={handleApply}
           onCancel={handleCancel}

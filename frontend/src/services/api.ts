@@ -134,3 +134,59 @@ export async function loadSampleImage(sampleUrl: string): Promise<UploadResponse
   const file = new File([blob], filename, { type: blob.type || 'image/png' });
   return uploadImage(file);
 }
+
+export interface LiveFrameResult {
+  blob: Blob;
+  processingTimeMs: number;
+  otsuThreshold: number | null;
+}
+
+export async function processLiveFrame(
+  frameBlob: Blob,
+  operation: string,
+  params: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<LiveFrameResult> {
+  const formData = new FormData();
+  formData.append('file', frameBlob, 'frame.jpg');
+  formData.append('operation', operation);
+  formData.append('params', JSON.stringify(params));
+
+  const response = await fetch('/api/images/process-frame', {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
+
+  if (!response.ok) {
+    let errorData: ApiErrorResponse = {
+      error_code: `HTTP_${response.status}`,
+      message: response.statusText || 'Gagal memproses frame kamera',
+    };
+    try {
+      const json = await response.json();
+      if (json && typeof json === 'object') {
+        errorData = {
+          error_code: json.error_code || errorData.error_code,
+          message: json.message || errorData.message,
+          detail: json.detail,
+        };
+      }
+    } catch {
+      // Non-JSON error body
+    }
+    throw new AppApiError(errorData.message, errorData.error_code, errorData.detail);
+  }
+
+  const timeHeader = response.headers.get('X-Processing-Time-Ms');
+  const otsuHeader = response.headers.get('X-Otsu-Threshold');
+  const processingTimeMs = timeHeader ? parseFloat(timeHeader) : 0;
+  const otsuThreshold = otsuHeader !== null ? parseFloat(otsuHeader) : null;
+  const blob = await response.blob();
+
+  return {
+    blob,
+    processingTimeMs: Number.isFinite(processingTimeMs) ? processingTimeMs : 0,
+    otsuThreshold: otsuThreshold !== null && Number.isFinite(otsuThreshold) ? otsuThreshold : null,
+  };
+}

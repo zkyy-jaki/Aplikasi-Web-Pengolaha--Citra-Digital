@@ -1,8 +1,37 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { UploadCloud, Image as ImageIcon } from 'lucide-react';
+import {
+  UploadCloud,
+  Image as ImageIcon,
+  Camera,
+  FlipHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { ViewMode, ZoomLevel } from '@/types/operations';
 import { WorkspaceMetadata } from '@/hooks/useImageWorkspace';
+import { LiveResolution } from '@/hooks/useWebcam';
 import { fetchSampleList } from '@/services/api';
+
+export interface CameraViewportProps {
+  isCameraOpen: boolean;
+  isStarting: boolean;
+  isCapturing: boolean;
+  isLiveFilter: boolean;
+  isMirrored: boolean;
+  liveResolution: LiveResolution;
+  devices: MediaDeviceInfo[];
+  selectedDeviceId: string;
+  streamResolution: { w: number; h: number } | null;
+  liveProcessingMs: number;
+  liveFps: number;
+  onOpenCamera: () => void;
+  onCloseCamera: () => void;
+  onToggleLiveFilter: () => void;
+  onToggleMirror: () => void;
+  onSetLiveResolution: (res: LiveResolution) => void;
+  onSwitchDevice: (deviceId: string) => void;
+  onCaptureSnapshot: () => void;
+}
 
 interface CenterStageProps {
   metadata: WorkspaceMetadata | null;
@@ -14,6 +43,9 @@ interface CenterStageProps {
   cursorPos: { x: number | null; y: number | null };
   processingTimeMs: number;
   isProcessing: boolean;
+  camera: CameraViewportProps;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  liveCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   onSelectFile: (file: File) => void;
   onLoadSample: (url: string) => void;
   onSplitChange: (pos: number) => void;
@@ -30,6 +62,9 @@ export const CenterStage: React.FC<CenterStageProps> = ({
   cursorPos,
   processingTimeMs,
   isProcessing,
+  camera,
+  videoRef,
+  liveCanvasRef,
   onSelectFile,
   onLoadSample,
   onSplitChange,
@@ -151,7 +186,158 @@ export const CenterStage: React.FC<CenterStageProps> = ({
       )}
 
       {/* Main View Area */}
-      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {camera.isCameraOpen ? (
+          /* Camera Viewport Mode (Phase 1 Snapshot & Phase 2 Stateless Live Filter) */
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Compact Camera Control Bar */}
+            <div className="bg-panel border-b border-panelBorder px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-subtleBg border border-accent/40 text-[11px] font-mono font-semibold text-accent">
+                  <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                  {camera.isLiveFilter ? 'LIVE FILTER' : 'SNAPSHOT READY'}
+                </span>
+
+                {camera.devices.length > 1 && (
+                  <select
+                    value={camera.selectedDeviceId}
+                    onChange={(e) => camera.onSwitchDevice(e.target.value)}
+                    className="bg-white border border-panelBorder rounded-sm px-2 py-1 text-xs text-textPrimary max-w-[170px] cursor-pointer focus:outline-none focus:border-accent"
+                  >
+                    {camera.devices.map((d, idx) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Camera ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <button
+                  type="button"
+                  onClick={camera.onToggleMirror}
+                  title="Mirror Camera Preview"
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium border transition cursor-pointer ${
+                    camera.isMirrored
+                      ? 'bg-[#FCEAF0] text-textPrimary border-accent font-semibold'
+                      : 'bg-white text-mutedText border-panelBorder hover:text-textPrimary'
+                  }`}
+                >
+                  <FlipHorizontal className="w-3.5 h-3.5 text-accent" />
+                  <span>Mirror</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Phase 2: Stateless Live Filter Toggle */}
+                <button
+                  type="button"
+                  onClick={camera.onToggleLiveFilter}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium border transition cursor-pointer ${
+                    camera.isLiveFilter
+                      ? 'bg-[#FCEAF0] text-accent border-accent font-semibold shadow-xs'
+                      : 'bg-white text-textPrimary border-panelBorder hover:bg-subtleBg'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  <span>Live Filter: {camera.isLiveFilter ? 'ON' : 'OFF'}</span>
+                </button>
+
+                {/* Resolution Cap Selector (visible when Live Filter is ON) */}
+                {camera.isLiveFilter && (
+                  <select
+                    value={camera.liveResolution}
+                    onChange={(e) =>
+                      camera.onSetLiveResolution(Number(e.target.value) as LiveResolution)
+                    }
+                    title="Max frame resolution sent for live filtering"
+                    className="bg-white border border-panelBorder rounded-sm px-2 py-1 text-xs font-mono text-textPrimary cursor-pointer focus:outline-none focus:border-accent"
+                  >
+                    <option value={320}>320px (Fastest)</option>
+                    <option value={480}>480px (Default)</option>
+                    <option value={640}>640px (HD)</option>
+                    <option value={1920}>1080p (Full HD)</option>
+                  </select>
+                )}
+
+                {/* Phase 1: Capture Snapshot to Workspace */}
+                <button
+                  type="button"
+                  disabled={camera.isCapturing}
+                  onClick={camera.onCaptureSnapshot}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-sm text-xs font-semibold bg-accent hover:bg-accentHover text-white transition shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{camera.isCapturing ? 'Capturing...' : 'Capture Snapshot'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={camera.onCloseCamera}
+                  title="Close Camera (Esc)"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium bg-subtleBg hover:bg-[#F5D8E2] text-textPrimary border border-panelBorder transition cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Camera Feed & Live Processed Canvas (never unmount <video> while camera is open) */}
+            <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+              <div
+                className={
+                  camera.isLiveFilter && viewMode === 'side-by-side'
+                    ? 'grid grid-cols-2 gap-4 w-full h-full items-center'
+                    : 'w-full h-full flex items-center justify-center'
+                }
+              >
+                {/* Raw Webcam <video> */}
+                <div
+                  className={
+                    camera.isLiveFilter && viewMode !== 'side-by-side'
+                      ? 'hidden'
+                      : 'relative max-w-full max-h-full flex items-center justify-center'
+                  }
+                >
+                  <div className="rounded-sm border border-panelBorder shadow-sm overflow-hidden bg-black/5 flex items-center justify-center max-w-full max-h-full">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`block max-w-full max-h-[calc(100vh-12rem)] object-contain ${
+                        camera.isMirrored ? 'scale-x-[-1]' : ''
+                      }`}
+                    />
+                  </div>
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-white/90 text-[10px] font-mono text-textPrimary border border-panelBorder font-semibold shadow-xs uppercase">
+                    {camera.isLiveFilter ? 'Original Camera' : 'Live Preview'}
+                  </div>
+                </div>
+
+                {/* Live Filtered <canvas> */}
+                <div
+                  className={
+                    !camera.isLiveFilter
+                      ? 'hidden'
+                      : 'relative max-w-full max-h-full flex items-center justify-center'
+                  }
+                >
+                  <div className="rounded-sm border border-panelBorder shadow-sm overflow-hidden bg-black/5 flex items-center justify-center max-w-full max-h-full">
+                    <canvas
+                      ref={liveCanvasRef}
+                      className="block max-w-full max-h-[calc(100vh-12rem)] object-contain"
+                    />
+                  </div>
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white font-semibold shadow-xs uppercase">
+                    Live Filtered
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
         {!metadata ? (
           /* Empty State: Direct on Canvas with Dot Grid, No Heavy Card Wrapper */
           <div className="flex flex-col items-center justify-center text-center max-w-lg p-6 space-y-5">
@@ -164,26 +350,38 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                 Digital Image Processing Studio
               </h2>
               <p className="text-xs text-mutedText max-w-sm">
-                Drag and drop an image file here, or browse from your device to begin processing
+                Drag and drop an image file here, browse from your device, or capture directly from your camera
               </p>
             </div>
 
             <div>
-              <label className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-sm cursor-pointer transition shadow-xs">
-                <UploadCloud className="w-4 h-4" />
-                <span>Open Image</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/bmp,image/webp"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      onSelectFile(e.target.files[0]);
-                    }
-                  }}
-                  className="hidden"
-                />
-              </label>
-              <p className="text-[11px] text-mutedText mt-1.5 font-mono">PNG, JPEG, BMP, WebP • Max 10 MB</p>
+              <div className="flex items-center justify-center gap-2.5">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accentHover text-white text-xs font-semibold rounded-sm cursor-pointer transition shadow-xs">
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Open Image</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/bmp,image/webp"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        onSelectFile(e.target.files[0]);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  disabled={camera.isStarting}
+                  onClick={camera.onOpenCamera}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-subtleBg text-textPrimary text-xs font-semibold rounded-sm border border-panelBorder hover:border-accent cursor-pointer transition shadow-xs disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4 text-accent" />
+                  <span>{camera.isStarting ? 'Starting...' : 'Use Camera'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-mutedText mt-2 font-mono">PNG, JPEG, BMP, WebP • Max 10 MB • Webcam Snapshot & Live Filter</p>
             </div>
 
             {/* Built-in Samples Quick Pick with Visual Thumbnails */}
@@ -341,47 +539,89 @@ export const CenterStage: React.FC<CenterStageProps> = ({
             )}
           </div>
         )}
+        </div>
+        )}
       </div>
 
       {/* Minimal Bottom Status Bar */}
       <footer className="h-7 bg-panel border-t border-panelBorder px-4 flex items-center justify-between text-[11px] font-mono text-mutedText shrink-0">
-        <div className="flex items-center gap-4">
-          <span>
-            X:{' '}
-            <span className="text-textPrimary font-semibold">
-              {cursorPos.x !== null ? `${cursorPos.x}px` : '—'}
-            </span>{' '}
-            Y:{' '}
-            <span className="text-textPrimary font-semibold">
-              {cursorPos.y !== null ? `${cursorPos.y}px` : '—'}
-            </span>
-          </span>
-          {metadata && (
-            <>
-              <span className="text-panelBorder">•</span>
+        {camera.isCameraOpen ? (
+          <>
+            <div className="flex items-center gap-4">
               <span>
-                Resolution:{' '}
+                Stream:{' '}
                 <span className="text-textPrimary font-semibold">
-                  {metadata.width} × {metadata.height}
+                  {camera.streamResolution
+                    ? `${camera.streamResolution.w} × ${camera.streamResolution.h}`
+                    : 'Initializing...'}
                 </span>
               </span>
-            </>
-          )}
-        </div>
+              {camera.isLiveFilter && (
+                <>
+                  <span className="text-panelBorder">•</span>
+                  <span>
+                    Send Cap:{' '}
+                    <span className="text-textPrimary font-semibold">
+                      {camera.liveResolution === 1920 ? '1080p' : `${camera.liveResolution}px`}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
 
-        <div className="flex items-center gap-3">
-          {isProcessing ? (
-            <span className="flex items-center gap-1.5 text-accent animate-pulse font-sans text-xs">
-              <span className="w-2 h-2 rounded-full bg-accent" />
-              <span>Processing...</span>
-            </span>
-          ) : processingTimeMs > 0 ? (
-            <span className="flex items-center gap-1 text-accent font-semibold">
-              <span>⚡</span>
-              <span>{processingTimeMs.toFixed(1)} ms</span>
-            </span>
-          ) : null}
-        </div>
+            <div className="flex items-center gap-3">
+              {camera.isLiveFilter ? (
+                <span className="flex items-center gap-2 text-accent font-semibold">
+                  <span>{camera.liveFps} FPS</span>
+                  <span className="text-panelBorder">•</span>
+                  <span>⚡ {camera.liveProcessingMs.toFixed(1)} ms/frame</span>
+                </span>
+              ) : (
+                <span className="text-mutedText">Snapshot Mode (Ready)</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-4">
+              <span>
+                X:{' '}
+                <span className="text-textPrimary font-semibold">
+                  {cursorPos.x !== null ? `${cursorPos.x}px` : '—'}
+                </span>{' '}
+                Y:{' '}
+                <span className="text-textPrimary font-semibold">
+                  {cursorPos.y !== null ? `${cursorPos.y}px` : '—'}
+                </span>
+              </span>
+              {metadata && (
+                <>
+                  <span className="text-panelBorder">•</span>
+                  <span>
+                    Resolution:{' '}
+                    <span className="text-textPrimary font-semibold">
+                      {metadata.width} × {metadata.height}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {isProcessing ? (
+                <span className="flex items-center gap-1.5 text-accent animate-pulse font-sans text-xs">
+                  <span className="w-2 h-2 rounded-full bg-accent" />
+                  <span>Processing...</span>
+                </span>
+              ) : processingTimeMs > 0 ? (
+                <span className="flex items-center gap-1 text-accent font-semibold">
+                  <span>⚡</span>
+                  <span>{processingTimeMs.toFixed(1)} ms</span>
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
       </footer>
     </main>
   );

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     PREVIEW_MAX_SIDE: int = 1280
     LARGE_IMAGE_THRESHOLD: int = 4000
 
+    # Stateless live camera frame limits (supports up to 1080p)
+    LIVE_FRAME_MAX_SIDE: int = 1920
+    LIVE_FRAME_MAX_BYTES: int = 4 * 1024 * 1024  # 4 MB
+
     # History stack
     HISTORY_MAX_STATES: int = 20
 

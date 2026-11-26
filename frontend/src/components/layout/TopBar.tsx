@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import {
   FolderOpen,
+  Camera,
   Undo2,
   Redo2,
   RotateCcw,
@@ -14,12 +15,16 @@ import { WorkspaceMetadata } from '@/hooks/useImageWorkspace';
 
 interface TopBarProps {
   metadata: WorkspaceMetadata | null;
+  isCameraOpen: boolean;
+  isCameraStarting: boolean;
+  isLiveFilter: boolean;
   viewMode: ViewMode;
   zoom: ZoomLevel;
   canUndo: boolean;
   canRedo: boolean;
   canReset: boolean;
   onSelectFile: (file: File) => void;
+  onToggleCamera: () => void;
   onSetViewMode: (mode: ViewMode) => void;
   onSetZoom: (zoom: ZoomLevel) => void;
   onUndo: () => void;
@@ -30,12 +35,16 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({
   metadata,
+  isCameraOpen,
+  isCameraStarting,
+  isLiveFilter,
   viewMode,
   zoom,
   canUndo,
   canRedo,
   canReset,
   onSelectFile,
+  onToggleCamera,
   onSetViewMode,
   onSetZoom,
   onUndo,
@@ -44,7 +53,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenExport,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const hasImage = !!metadata;
+  const hasImage = !!metadata && !isCameraOpen;
+  const canSwitchView = hasImage || (isCameraOpen && isLiveFilter);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -82,11 +92,30 @@ export const TopBar: React.FC<TopBarProps> = ({
           <FolderOpen className="w-3.5 h-3.5 text-accent" />
           <span>Open Image</span>
         </button>
+
+        <button
+          type="button"
+          disabled={isCameraStarting}
+          onClick={onToggleCamera}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium border transition shadow-xs cursor-pointer disabled:opacity-50 ${
+            isCameraOpen
+              ? 'bg-accent text-white border-accent hover:bg-accentHover'
+              : 'bg-subtleBg hover:bg-[#F5D8E2] text-textPrimary border-panelBorder'
+          }`}
+        >
+          <Camera className={`w-3.5 h-3.5 ${isCameraOpen ? 'text-white' : 'text-accent'}`} />
+          <span>{isCameraStarting ? 'Starting...' : isCameraOpen ? 'Close Camera' : 'Use Camera'}</span>
+        </button>
       </div>
 
       {/* Middle: Active Metadata + View Mode + Zoom */}
       <div className="flex items-center gap-3">
-        {metadata ? (
+        {isCameraOpen ? (
+          <div className="text-xs font-mono text-accent flex items-center gap-2 px-2.5 py-1 rounded-sm bg-subtleBg border border-accent/40 font-semibold">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+            <span>{isLiveFilter ? 'LIVE FILTER (STATELESS)' : 'CAMERA SNAPSHOT MODE'}</span>
+          </div>
+        ) : metadata ? (
           <div className="text-xs font-mono text-mutedText flex items-center gap-2 px-2.5 py-1 rounded-sm bg-subtleBg border border-panelBorder">
             <span className="text-textPrimary font-medium truncate max-w-[150px]" title={metadata.filename}>
               {metadata.filename}
@@ -105,10 +134,10 @@ export const TopBar: React.FC<TopBarProps> = ({
         )}
 
         {/* View Mode Segmented Controls */}
-        <div className={`flex items-center bg-subtleBg p-0.5 rounded-sm border border-panelBorder ${!hasImage ? 'opacity-40 pointer-events-none' : ''}`}>
+        <div className={`flex items-center bg-subtleBg p-0.5 rounded-sm border border-panelBorder ${!canSwitchView ? 'opacity-40 pointer-events-none' : ''}`}>
           <button
             type="button"
-            disabled={!hasImage}
+            disabled={!canSwitchView}
             onClick={() => onSetViewMode('single')}
             title="Single View"
             className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium transition cursor-pointer ${
@@ -122,7 +151,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
           <button
             type="button"
-            disabled={!hasImage}
+            disabled={!canSwitchView}
             onClick={() => onSetViewMode('side-by-side')}
             title="Side-by-Side (Original vs Processed)"
             className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium transition cursor-pointer ${
@@ -139,7 +168,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             disabled={!hasImage}
             onClick={() => onSetViewMode('split')}
             title="Split Slider Comparison"
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium transition cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-xs font-medium transition cursor-pointer disabled:opacity-35 disabled:pointer-events-none ${
               viewMode === 'split'
                 ? 'bg-white text-textPrimary font-semibold shadow-xs border border-panelBorder'
                 : 'text-mutedText hover:text-textPrimary'

@@ -174,3 +174,22 @@ class TestAPIEndpoints:
         body = resp.json()
         assert "samples" in body
         assert len(body["samples"]) == 3
+
+    def test_process_otsu_returns_threshold(self, client: TestClient):
+        img = make_rgb()
+        img[:32, :] = 40
+        img[32:, :] = 200
+        data = bgr_to_png_bytes(img)
+        sid = client.post(
+            "/api/images/upload",
+            files={"file": ("otsu.png", io.BytesIO(data), "image/png")},
+        ).json()["session_id"]
+
+        resp = client.post(
+            f"/api/images/{sid}/process",
+            json={"operation": "threshold", "params": {"method": "otsu"}, "commit": False},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["otsu_threshold"] is not None
+        assert isinstance(body["otsu_threshold"], float)

@@ -156,7 +156,7 @@ def _dispatch_threshold(image: Any, **params: Any) -> Any:
         "binary_inv": lambda img: ops_point.threshold_binary_inv(img, thresh),
         "truncate": lambda img: ops_point.threshold_truncate(img, thresh),
         "to_zero": lambda img: ops_point.threshold_to_zero(img, thresh),
-        "otsu": lambda img: ops_point.threshold_otsu(img)[0],
+        "otsu": lambda img: ops_point.threshold_otsu(img),
     }
     return dispatch[method](image)
 

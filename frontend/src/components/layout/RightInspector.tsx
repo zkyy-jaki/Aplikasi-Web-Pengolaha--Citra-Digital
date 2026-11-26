@@ -29,6 +29,8 @@ interface RightInspectorProps {
   otsuCalculatedT: number | null;
   isProcessing: boolean;
   hasImage: boolean;
+  isCameraOpen?: boolean;
+  isLiveFilter?: boolean;
   onUpdateParams: (params: Partial<AnyOperationParams>) => void;
   onApply: () => void;
   onCancel: () => void;
@@ -44,6 +46,8 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   otsuCalculatedT,
   isProcessing,
   hasImage,
+  isCameraOpen = false,
+  isLiveFilter = false,
   onUpdateParams,
   onApply,
   onCancel,
@@ -51,13 +55,14 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   const [histMode, setHistMode] = useState<'rgb' | 'gray'>('rgb');
   const [histTarget, setHistTarget] = useState<'current' | 'original'>('current');
   const chartRef = useRef<HTMLDivElement>(null);
+  const effectiveHasImage = hasImage && !isCameraOpen;
 
   const activeHist = histTarget === 'current' ? currentHistogram : originalHistogram;
   const opMeta = OPERATIONS.find((o) => o.id === activeOp);
 
   // Prepare chart data (256 bins)
   const chartData = React.useMemo(() => {
-    if (!hasImage || !activeHist || !activeHist.channels || activeHist.channels.length === 0) {
+    if (!effectiveHasImage || !activeHist || !activeHist.channels || activeHist.channels.length === 0) {
       return [];
     }
 
@@ -90,11 +95,11 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
       }
     }
     return data;
-  }, [hasImage, activeHist, histMode]);
+  }, [effectiveHasImage, activeHist, histMode]);
 
   // Export Histogram chart as PNG
   const handleDownloadHistogramPng = () => {
-    if (!hasImage || !chartRef.current) return;
+    if (!effectiveHasImage || !chartRef.current) return;
     const svgElem = chartRef.current.querySelector('svg');
     if (!svgElem) return;
 
@@ -135,10 +140,10 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
           {/* Toggle buttons */}
           <div className="flex items-center gap-1">
-            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] font-mono ${!hasImage ? 'opacity-40 pointer-events-none' : ''}`}>
+            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] font-mono ${!effectiveHasImage ? 'opacity-40 pointer-events-none' : ''}`}>
               <button
                 type="button"
-                disabled={!hasImage}
+                disabled={!effectiveHasImage}
                 onClick={() => setHistMode('rgb')}
                 className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
                   histMode === 'rgb' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
@@ -148,7 +153,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               </button>
               <button
                 type="button"
-                disabled={!hasImage}
+                disabled={!effectiveHasImage}
                 onClick={() => setHistMode('gray')}
                 className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
                   histMode === 'gray' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
@@ -158,10 +163,10 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               </button>
             </div>
 
-            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] ${!hasImage ? 'opacity-40 pointer-events-none' : ''}`}>
+            <div className={`flex bg-subtleBg p-0.5 rounded-sm border border-panelBorder text-[10px] ${!effectiveHasImage ? 'opacity-40 pointer-events-none' : ''}`}>
               <button
                 type="button"
-                disabled={!hasImage}
+                disabled={!effectiveHasImage}
                 onClick={() => setHistTarget('current')}
                 className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
                   histTarget === 'current' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
@@ -171,7 +176,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               </button>
               <button
                 type="button"
-                disabled={!hasImage}
+                disabled={!effectiveHasImage}
                 onClick={() => setHistTarget('original')}
                 className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer ${
                   histTarget === 'original' ? 'bg-white text-textPrimary font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
@@ -183,7 +188,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
             <button
               type="button"
-              disabled={!hasImage}
+              disabled={!effectiveHasImage}
               onClick={handleDownloadHistogramPng}
               title="Download Histogram Chart (PNG)"
               className="p-1 rounded-sm bg-subtleBg hover:bg-[#F5D8E2] border border-panelBorder text-mutedText hover:text-textPrimary transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
@@ -195,7 +200,11 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
 
         {/* Chart View */}
         <div ref={chartRef} className="h-28 w-full bg-white rounded-sm border border-panelBorder p-1 flex items-center justify-center">
-          {!hasImage ? (
+          {isCameraOpen ? (
+            <div className="h-full flex items-center justify-center text-[11px] text-mutedText font-mono text-center px-3">
+              Stateless camera mode — capture a snapshot to compute histogram
+            </div>
+          ) : !effectiveHasImage ? (
             <div className="h-full flex items-center justify-center text-xs text-mutedText font-mono">
               No image loaded
             </div>
@@ -238,7 +247,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
         </div>
 
         {/* Tabular Monospace Stats */}
-        {hasImage && activeHist?.stats ? (
+        {effectiveHasImage && activeHist?.stats ? (
           <div className="grid grid-cols-4 gap-1 text-center font-mono">
             <div className="bg-white p-1 rounded-sm border border-panelBorder shadow-xs">
               <span className="block text-[9px] text-mutedText uppercase">Min</span>
@@ -319,25 +328,34 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
         </div>
 
         {/* Action Buttons: Cancel & Apply */}
-        <div className="flex gap-2 pt-3 border-t border-panelBorder">
-          <button
-            type="button"
-            disabled={!hasImage}
-            onClick={onCancel}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-medium bg-subtleBg hover:bg-[#F5D8E2] text-textPrimary border border-panelBorder transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span>Cancel</span>
-          </button>
-          <button
-            type="button"
-            disabled={!hasImage || isProcessing}
-            onClick={onApply}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-semibold bg-accent hover:bg-accentHover text-white shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>{isProcessing ? 'Processing...' : 'Apply (Commit)'}</span>
-          </button>
+        <div className="space-y-2 pt-3 border-t border-panelBorder">
+          {isCameraOpen && (
+            <p className="text-[11px] font-mono text-accent bg-subtleBg border border-accent/30 px-2.5 py-1.5 rounded-sm">
+              {isLiveFilter
+                ? 'Live preview is stateless. Click "Capture Snapshot" to edit & commit to history.'
+                : 'Turn on "Live Filter" to preview operations on camera, or click "Capture Snapshot".'}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!effectiveHasImage}
+              onClick={onCancel}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-medium bg-subtleBg hover:bg-[#F5D8E2] text-textPrimary border border-panelBorder transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Cancel</span>
+            </button>
+            <button
+              type="button"
+              disabled={!effectiveHasImage || isProcessing}
+              onClick={onApply}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-sm text-xs font-semibold bg-accent hover:bg-accentHover text-white shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{isProcessing ? 'Processing...' : 'Apply (Commit)'}</span>
+            </button>
+          </div>
         </div>
       </div>
 

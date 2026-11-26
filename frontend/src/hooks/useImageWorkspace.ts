@@ -24,7 +24,7 @@ export interface WorkspaceMetadata {
   format: string;
 }
 
-export function useImageWorkspace() {
+export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<WorkspaceMetadata | null>(null);
 
@@ -94,7 +94,7 @@ export function useImageWorkspace() {
   }, []);
 
   const { isProcessing: isPreviewDebouncing } = useDebouncedPreview({
-    sessionId,
+    sessionId: pauseDebouncedPreview ? null : sessionId,
     activeOp,
     params: draftParams,
     onSuccess: handlePreviewSuccess,
@@ -260,6 +260,8 @@ export function useImageWorkspace() {
     isProcessing: isPreviewDebouncing || isPending,
     errorMessage,
     dismissError,
+    reportError: setErrorMessage,
+    setOtsuCalculatedT,
     setCursorPos,
     setSplitPosition,
     setViewMode,

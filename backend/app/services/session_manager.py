@@ -164,15 +164,20 @@ def upload_image(data: bytes, filename: str) -> dict:
     }
 
 
-def _make_preview_b64(image: NDArray[np.uint8]) -> str:
+def downscale_max_side(image: NDArray[np.uint8], max_side: int) -> NDArray[np.uint8]:
+    """Downscale image proportionally so its longest side <= max_side (pure NumPy)."""
     h, w = image.shape[:2]
-    max_side = settings.PREVIEW_MAX_SIDE
-    if max(h, w) > max_side:
-        scale = max_side / max(h, w)
-        new_h, new_w = int(h * scale), int(w * scale)
-        y_idx = np.clip(np.round(np.linspace(0, h - 1, new_h)).astype(int), 0, h - 1)
-        x_idx = np.clip(np.round(np.linspace(0, w - 1, new_w)).astype(int), 0, w - 1)
-        image = image[np.ix_(y_idx, x_idx)]
+    if max(h, w) <= max_side:
+        return image
+    scale = max_side / max(h, w)
+    new_h, new_w = max(1, int(h * scale)), max(1, int(w * scale))
+    y_idx = np.clip(np.round(np.linspace(0, h - 1, new_h)).astype(int), 0, h - 1)
+    x_idx = np.clip(np.round(np.linspace(0, w - 1, new_w)).astype(int), 0, w - 1)
+    return image[np.ix_(y_idx, x_idx)]
+
+
+def _make_preview_b64(image: NDArray[np.uint8]) -> str:
+    image = downscale_max_side(image, settings.PREVIEW_MAX_SIDE)
 
     # Encode to PNG bytes → base64
     import base64

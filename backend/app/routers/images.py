@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, Literal
 
-from fastapi import APIRouter, File, UploadFile
+import cv2
+import numpy as np
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app.core.config import settings
+from app.core.exceptions import FileTooLargeError, InvalidFileError, InvalidParamsError
 from app.core.logging import get_logger
 from app.services import registry
 from app.services.histogram import compute_histogram
 from app.services.session_manager import (
     _make_preview_b64,
     apply_history_action,
+    downscale_max_side,
     export_image,
     get_session,
     upload_image,
@@ -102,3 +108,49 @@ def export(
         media_type=content_type,
         headers={"Content-Disposition": f"attachment; filename=processed.{ext}"},
     )
+
+
+@router.post("/process-frame")
+def process_live_frame(
+    file: UploadFile = File(...),
+    operation: str = Form(...),
+    params: str = Form("{}"),
+) -> Response:
+    """Stateless live-camera frame processing (no session, no history, no histogram)."""
+    data = file.file.read()
+    if not data:
+        raise InvalidFileError("Frame kamera kosong")
+    if len(data) > settings.LIVE_FRAME_MAX_BYTES:
+        raise FileTooLargeError(len(data), settings.LIVE_FRAME_MAX_BYTES)
+
+    arr = np.frombuffer(data, dtype=np.uint8)
+    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if frame is None:
+        raise InvalidFileError("Gagal mendekode frame kamera")
+
+    frame = downscale_max_side(frame, settings.LIVE_FRAME_MAX_SIDE)
+
+    try:
+        parsed_params = json.loads(params)
+    except json.JSONDecodeError as exc:
+        raise InvalidParamsError(f"Format JSON params tidak valid: {exc}") from exc
+    if not isinstance(parsed_params, dict):
+        raise InvalidParamsError("Params harus berupa JSON object")
+
+    t0 = time.perf_counter()
+    result = registry.execute_operation(operation, frame, parsed_params)
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+
+    otsu_thresh: float | None = None
+    if isinstance(result, tuple):
+        result, otsu_thresh = result
+
+    success, buf = cv2.imencode(".jpg", result, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    if not success:
+        raise InvalidFileError("Gagal mengenkode frame hasil olahan")
+
+    headers = {"X-Processing-Time-Ms": f"{elapsed_ms:.2f}"}
+    if otsu_thresh is not None:
+        headers["X-Otsu-Threshold"] = f"{otsu_thresh:.1f}"
+
+    return Response(content=buf.tobytes(), media_type="image/jpeg", headers=headers)
