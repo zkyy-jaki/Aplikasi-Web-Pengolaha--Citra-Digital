@@ -24,7 +24,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
   if (activeOp === 'grayscale') {
     const p = params as GrayscaleParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Grayscale Method
@@ -35,10 +35,10 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
                 key={method}
                 type="button"
                 onClick={() => onChange({ method })}
-                className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition capitalize cursor-pointer ${
+                className={`py-1.5 px-2 text-xs font-semibold rounded-sm border transition capitalize cursor-pointer ${
                   p.method === method
-                    ? 'bg-accent text-white shadow-xs'
-                    : 'text-mutedText hover:text-textPrimary hover:bg-white'
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-transparent text-mutedText hover:text-textPrimary hover:bg-white'
                 }`}
               >
                 {method}
@@ -46,11 +46,6 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-mutedText leading-relaxed">
-          {p.method === 'luminance' && 'Luminance (ITU-R BT.601): Y = 0.299R + 0.587G + 0.114B calibrated to human spectral perception.'}
-          {p.method === 'average' && 'Average: Y = (R + G + B) / 3 arithmetic mean of all three color channels.'}
-          {p.method === 'lightness' && 'Lightness: Y = (max(R,G,B) + min(R,G,B)) / 2 desaturating extremum intensity range.'}
-        </p>
       </div>
     );
   }
@@ -59,7 +54,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
     const p = params as BrightnessParams;
     const beta = p.beta ?? 0;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
@@ -91,22 +86,14 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             <span>+255</span>
           </div>
         </div>
-        <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText leading-relaxed">
-          <span className="text-textPrimary font-semibold">Safe Clamping:</span> Intensities are strictly clamped to [0, 255] using 16-bit intermediate math to prevent overflow wrap-around.
-        </div>
       </div>
     );
   }
 
   if (activeOp === 'negative') {
     return (
-      <div className="space-y-3">
-        <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded-sm text-xs space-y-1.5">
-          <p className="font-semibold text-textPrimary">Negative Inversion (255 - I)</p>
-          <p className="text-[11px] text-mutedText leading-relaxed">
-            Inverts pixel values across all color channels. PNG Alpha transparency channel is preserved without inversion.
-          </p>
-        </div>
+      <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText leading-relaxed">
+        Inverts pixel intensities across all color channels while preserving PNG Alpha transparency without inversion.
       </div>
     );
   }
@@ -115,7 +102,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
     const p = params as ThresholdParams;
     const isOtsu = p.method === 'otsu';
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Thresholding Method
@@ -129,7 +116,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             <option value="binary_inv">Binary Invert (I &gt; T → 0, else 255)</option>
             <option value="truncate">Truncate (I &gt; T → T, else I)</option>
             <option value="to_zero">To Zero (I &gt; T → I, else 0)</option>
-            <option value="otsu">Otsu's Automatic Threshold</option>
+            <option value="otsu">Otsu&apos;s Automatic Threshold</option>
           </select>
         </div>
 
@@ -166,16 +153,13 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             </div>
           </div>
         ) : (
-          <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded-sm space-y-1.5">
+          <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm space-y-1">
             <div className="text-xs font-semibold text-textPrimary flex items-center justify-between">
               <span>Otsu Optimal Threshold:</span>
-              <span className="font-mono text-accent text-sm font-bold">
+              <span className="font-mono text-accent text-xs font-bold">
                 {otsuCalculatedT !== null ? `T = ${otsuCalculatedT}` : 'Calculating...'}
               </span>
             </div>
-            <p className="text-[11px] text-mutedText leading-relaxed">
-              Minimizes intra-class intensity variance automatically from image histogram bi-modality.
-            </p>
           </div>
         )}
       </div>
@@ -186,7 +170,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
     const p = params as EqualizeParams;
     const isClahe = p.mode === 'clahe';
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Equalization Mode
@@ -195,10 +179,10 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             <button
               type="button"
               onClick={() => onChange({ mode: 'global' })}
-              className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition cursor-pointer ${
+              className={`py-1.5 px-2 text-xs font-semibold rounded-sm border transition cursor-pointer ${
                 !isClahe
-                  ? 'bg-accent text-white shadow-xs'
-                  : 'text-mutedText hover:text-textPrimary hover:bg-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-transparent text-mutedText hover:text-textPrimary hover:bg-white'
               }`}
             >
               Global (YCrCb)
@@ -206,10 +190,10 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
             <button
               type="button"
               onClick={() => onChange({ mode: 'clahe' })}
-              className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition cursor-pointer ${
+              className={`py-1.5 px-2 text-xs font-semibold rounded-sm border transition cursor-pointer ${
                 isClahe
-                  ? 'bg-accent text-white shadow-xs'
-                  : 'text-mutedText hover:text-textPrimary hover:bg-white'
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-transparent text-mutedText hover:text-textPrimary hover:bg-white'
               }`}
             >
               CLAHE (Adaptive)
@@ -217,7 +201,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
           </div>
         </div>
 
-        {isClahe ? (
+        {isClahe && (
           <div className="space-y-3">
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -254,14 +238,7 @@ export const ToneColorControls: React.FC<ToneColorControlsProps> = ({
                 className="w-full cursor-pointer"
               />
             </div>
-            <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
-              Contrast Limited Adaptive Histogram Equalization operates on local rectangular tiles to prevent noise amplification in flat regions.
-            </p>
           </div>
-        ) : (
-          <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
-            Equalizes Luminance channel (Y in YCrCb color space) exclusively, preventing artificial hue distortion on color images.
-          </p>
         )}
       </div>
     );

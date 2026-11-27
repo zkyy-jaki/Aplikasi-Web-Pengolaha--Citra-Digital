@@ -20,6 +20,7 @@ export function App() {
     currentHistogram,
     originalHistogram,
     historyList,
+    historySteps,
     historyIndex,
     activeOp,
     draftParams,
@@ -45,6 +46,8 @@ export function App() {
     handleApply,
     handleCancel,
     handleHistoryAction,
+    handleToggleHistoryStep,
+    handleDeleteHistoryStep,
   } = useImageWorkspace(isCameraActive);
 
   const webcam = useWebcam({
@@ -203,6 +206,7 @@ export function App() {
           currentHistogram={currentHistogram}
           originalHistogram={originalHistogram}
           historyList={historyList}
+          historySteps={historySteps}
           historyIndex={historyIndex}
           otsuCalculatedT={otsuCalculatedT}
           isProcessing={isProcessing}
@@ -212,6 +216,8 @@ export function App() {
           onUpdateParams={handleUpdateParams}
           onApply={handleApply}
           onCancel={handleCancel}
+          onToggleHistoryStep={handleToggleHistoryStep}
+          onDeleteHistoryStep={handleDeleteHistoryStep}
         />
       </div>
 

@@ -23,7 +23,7 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
   if (activeOp === 'sharpen') {
     const p = params as SharpenParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Sharpening Method
@@ -34,10 +34,10 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
                 key={method}
                 type="button"
                 onClick={() => onChange({ method })}
-                className={`py-1.5 px-1.5 text-xs font-semibold rounded-sm transition capitalize cursor-pointer ${
+                className={`py-1.5 px-1.5 text-xs font-semibold rounded-sm border transition capitalize cursor-pointer ${
                   p.method === method
-                    ? 'bg-accent text-white shadow-xs'
-                    : 'text-mutedText hover:text-textPrimary hover:bg-white'
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-transparent text-mutedText hover:text-textPrimary hover:bg-white'
                 }`}
               >
                 {method === 'unsharp_mask' ? 'Unsharp' : method}
@@ -46,11 +46,13 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
           </div>
         </div>
 
-        {p.method === 'unsharp_mask' ? (
+        {p.method === 'unsharp_mask' && (
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs text-mutedText font-semibold">Strength (Alpha α)</label>
-              <span className="font-mono text-xs text-textPrimary font-semibold">{p.alpha_strength.toFixed(2)}</span>
+              <span className="font-mono text-xs text-textPrimary font-semibold">
+                {p.alpha_strength.toFixed(2)}
+              </span>
             </div>
             <input
               type="range"
@@ -61,15 +63,7 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
               onChange={(e) => onChange({ alpha_strength: parseFloat(e.target.value) })}
               className="w-full cursor-pointer"
             />
-            <p className="text-[11px] text-mutedText mt-1.5 font-mono">
-              Unsharp Mask: I_out = clip(I_in + α · (I_in - I_blur), 0, 255)
-            </p>
           </div>
-        ) : (
-          <p className="text-[11px] text-mutedText bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm leading-relaxed">
-            {p.method === 'standard' && 'Standard 3×3 Laplacian kernel with center 5 and cross neighbors -1.'}
-            {p.method === 'strong' && 'Aggressive 3×3 kernel with center 9 and all 8 surrounding neighbors -1.'}
-          </p>
         )}
       </div>
     );
@@ -78,7 +72,7 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
   if (activeOp === 'edge_sobel') {
     const p = params as SobelParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Gradient Direction
@@ -89,10 +83,10 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
                 key={dir}
                 type="button"
                 onClick={() => onChange({ direction: dir })}
-                className={`py-1.5 px-2 text-xs font-semibold rounded-sm transition capitalize cursor-pointer ${
+                className={`py-1.5 px-2 text-xs font-semibold rounded-sm border transition capitalize cursor-pointer ${
                   p.direction === dir
-                    ? 'bg-accent text-white shadow-xs'
-                    : 'text-mutedText hover:text-textPrimary hover:bg-white'
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-transparent text-mutedText hover:text-textPrimary hover:bg-white'
                 }`}
               >
                 {dir === 'combined' ? 'Magnitude' : `${dir.toUpperCase()}-Only`}
@@ -104,7 +98,9 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs text-mutedText font-semibold">Sobel Kernel Size</label>
-            <span className="font-mono text-xs text-textPrimary font-semibold">{p.ksize}×{p.ksize}</span>
+            <span className="font-mono text-xs text-textPrimary font-semibold">
+              {p.ksize}×{p.ksize}
+            </span>
           </div>
           <div className="flex gap-2">
             {[3, 5].map((k) => (
@@ -112,9 +108,9 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
                 key={k}
                 type="button"
                 onClick={() => onChange({ ksize: k })}
-                className={`flex-1 py-1 text-xs rounded-sm border transition cursor-pointer ${
+                className={`flex-1 py-1 text-xs font-mono rounded-sm border transition cursor-pointer ${
                   p.ksize === k
-                    ? 'border-accent bg-subtleBg text-accent font-semibold shadow-xs'
+                    ? 'border-accent bg-subtleBg text-accent font-semibold'
                     : 'border-panelBorder bg-white text-mutedText hover:text-textPrimary'
                 }`}
               >
@@ -129,13 +125,8 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
 
   if (activeOp === 'edge_prewitt') {
     return (
-      <div className="space-y-3">
-        <div className="bg-subtleBg/70 border border-panelBorder p-3 rounded-sm text-xs space-y-1.5">
-          <p className="font-semibold text-textPrimary">Prewitt Differential Operator</p>
-          <p className="text-[11px] text-mutedText leading-relaxed">
-            Calculates edge discontinuity magnitude using uniform horizontal and vertical kernels of ±1 weights.
-          </p>
-        </div>
+      <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText leading-relaxed">
+        Calculates edge discontinuity magnitude using uniform horizontal and vertical kernels of ±1 weights.
       </div>
     );
   }
@@ -143,8 +134,8 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
   if (activeOp === 'edge_laplacian') {
     const p = params as LaplacianParams;
     return (
-      <div className="space-y-4">
-        <label className="flex items-center gap-2.5 text-xs text-textPrimary bg-white p-2.5 rounded-sm border border-panelBorder cursor-pointer shadow-xs">
+      <div className="space-y-3">
+        <label className="flex items-center gap-2.5 text-xs text-textPrimary bg-white p-2.5 rounded-sm border border-panelBorder cursor-pointer">
           <input
             type="checkbox"
             checked={p.pre_gaussian}
@@ -176,11 +167,13 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
     };
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs text-mutedText font-semibold">Low Threshold</label>
-            <span className="font-mono text-xs text-textPrimary font-semibold">{p.low_threshold}</span>
+            <span className="font-mono text-xs text-textPrimary font-semibold">
+              {p.low_threshold}
+            </span>
           </div>
           <input
             type="range"
@@ -195,7 +188,9 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs text-mutedText font-semibold">High Threshold</label>
-            <span className="font-mono text-xs text-textPrimary font-semibold">{p.high_threshold}</span>
+            <span className="font-mono text-xs text-textPrimary font-semibold">
+              {p.high_threshold}
+            </span>
           </div>
           <input
             type="range"
@@ -206,10 +201,6 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
             className="w-full cursor-pointer"
           />
         </div>
-
-        <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText">
-          Hysteresis Constraint: <span className="font-mono text-textPrimary font-semibold">Low ({p.low_threshold}) ≤ High ({p.high_threshold})</span> for valid edge linking.
-        </div>
       </div>
     );
   }
@@ -217,13 +208,13 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
   if (activeOp === 'sketch') {
     const p = params as SketchParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
               Stroke Width (Kernel Size)
             </label>
-            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder shadow-xs">
+            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder">
               {p.kernel_size}×{p.kernel_size}
             </span>
           </div>
@@ -242,9 +233,6 @@ export const DetailControls: React.FC<DetailControlsProps> = ({
             <span>Broad (51)</span>
           </div>
         </div>
-        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
-          Color Dodge Blend mode divides grayscale input by inverted blurred image with divisor guard (min 1) to prevent zero division.
-        </p>
       </div>
     );
   }

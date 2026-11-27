@@ -20,9 +20,11 @@ from app.services.histogram import compute_histogram
 from app.services.session_manager import (
     _make_preview_b64,
     apply_history_action,
+    delete_history_step,
     downscale_max_side,
     export_image,
     get_session,
+    toggle_history_step,
     upload_image,
 )
 
@@ -43,6 +45,9 @@ class ProcessResponse(BaseModel):
     histogram: dict
     processing_time_ms: float
     otsu_threshold: float | None = None
+    history: list[str] | None = None
+    history_steps: list[dict] | None = None
+    history_index: int | None = None
 
 
 @router.post("/upload")
@@ -87,12 +92,25 @@ def process(session_id: str, body: ProcessRequest) -> ProcessResponse:
         histogram=hist.model_dump(),
         processing_time_ms=round(elapsed_ms, 2),
         otsu_threshold=otsu_thresh,
+        history=session.history_labels() if body.commit else None,
+        history_steps=session.history_steps() if body.commit else None,
+        history_index=session.history_index if body.commit else None,
     )
 
 
 @router.post("/{session_id}/history/{action}")
 def history(session_id: str, action: Literal["undo", "redo", "reset"]) -> dict:
     return apply_history_action(session_id, action)
+
+
+@router.patch("/{session_id}/history/{step_index}/toggle")
+def toggle_step(session_id: str, step_index: int) -> dict:
+    return toggle_history_step(session_id, step_index)
+
+
+@router.delete("/{session_id}/history/{step_index}")
+def delete_step(session_id: str, step_index: int) -> dict:
+    return delete_history_step(session_id, step_index)
 
 
 @router.get("/{session_id}/export")

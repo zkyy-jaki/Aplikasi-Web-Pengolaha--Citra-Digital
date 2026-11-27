@@ -22,7 +22,6 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
     const p = params as MirrorParams;
     const currentDir = p.direction ?? 'none';
 
-    // State derivation from currentDir (Option A: Accumulative Toggle Model)
     const isHorizActive = currentDir === 'horizontal' || currentDir === 'both';
     const isVertActive = currentDir === 'vertical' || currentDir === 'both';
 
@@ -78,7 +77,7 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
     ];
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider block mb-2">
             Mirror Direction
@@ -89,16 +88,16 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
                 key={type}
                 type="button"
                 onClick={() => handleToggle(type)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-xs transition border cursor-pointer ${
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-sm text-xs transition border cursor-pointer ${
                   isActive
-                    ? 'bg-accent text-white border-accent font-semibold shadow-xs'
+                    ? 'bg-accent text-white border-accent font-semibold'
                     : 'bg-white text-mutedText border-panelBorder hover:text-textPrimary hover:bg-subtleBg'
                 }`}
               >
                 {icon}
                 <span>{label}</span>
                 {isActive && (
-                  <span className="ml-auto text-[10px] font-mono bg-white/20 px-1.5 py-0.2 rounded-xs">
+                  <span className="ml-auto text-[10px] font-mono bg-white/20 px-1.5 py-0.2 rounded-sm">
                     ACTIVE
                   </span>
                 )}
@@ -106,10 +105,6 @@ export const GeometryControls: React.FC<GeometryControlsProps> = ({
             ))}
           </div>
         </div>
-
-        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
-          Flips pixel coordinate indices without modifying intensity values. PNG Alpha transparency channel is mirrored identically.
-        </p>
       </div>
     );
   }

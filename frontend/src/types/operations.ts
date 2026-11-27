@@ -37,11 +37,23 @@ export interface ProcessResponse {
   histogram: HistogramResult;
   processing_time_ms: number;
   otsu_threshold?: number | null;
+  history?: string[] | null;
+  history_steps?: HistoryStepItem[] | null;
+  history_index?: number | null;
+}
+
+export interface HistoryStepItem {
+  id: string;
+  operation: string;
+  params: Record<string, unknown>;
+  label: string;
+  enabled: boolean;
 }
 
 export interface HistoryResponse {
   session_id: string;
   history: string[];
+  history_steps?: HistoryStepItem[];
   history_index: number;
   preview_base64: string;
   histogram: HistogramResult;

@@ -87,6 +87,28 @@ export async function applyHistoryAction(
   return handleResponse<HistoryResponse>(response);
 }
 
+export async function toggleHistoryStep(
+  sessionId: string,
+  stepIndex: number
+): Promise<HistoryResponse> {
+  const response = await fetch(`/api/images/${sessionId}/history/${stepIndex}/toggle`, {
+    method: 'PATCH',
+  });
+
+  return handleResponse<HistoryResponse>(response);
+}
+
+export async function deleteHistoryStep(
+  sessionId: string,
+  stepIndex: number
+): Promise<HistoryResponse> {
+  const response = await fetch(`/api/images/${sessionId}/history/${stepIndex}`, {
+    method: 'DELETE',
+  });
+
+  return handleResponse<HistoryResponse>(response);
+}
+
 export function getExportUrl(
   sessionId: string,
   format: 'png' | 'jpeg' | 'bmp',

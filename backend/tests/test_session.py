@@ -134,6 +134,76 @@ class TestHistoryStack:
         s.push(make_rgb(fill=(99, 0, 0)), "op_new", {})
         assert len(s.history) == 2
 
+    def test_toggle_step_recomputes_pipeline(self):
+        from app.services.session_manager import toggle_history_step
+        from app.services import registry
+
+        sid = self._upload()
+        s = get_session(sid)
+        base = s.current_image.copy()
+        img1 = registry.execute_operation("brightness", base, {"beta": 40})
+        s.push(img1, "brightness", {"beta": 40})
+        img2 = registry.execute_operation("brightness", img1, {"beta": 30})
+        s.push(img2, "brightness", {"beta": 30})
+
+        res = toggle_history_step(sid, 0)
+        assert res["history_steps"][0]["enabled"] is False
+        assert res["history_steps"][1]["enabled"] is True
+        expected = registry.execute_operation("brightness", base, {"beta": 30})
+        np.testing.assert_array_equal(s.current_image, expected)
+
+    def test_toggle_all_steps_off_returns_original(self):
+        from app.services.session_manager import toggle_history_step
+        from app.services import registry
+
+        sid = self._upload()
+        s = get_session(sid)
+        base = s.original.copy()
+        img1 = registry.execute_operation("negative", base, {})
+        s.push(img1, "negative", {})
+
+        res = toggle_history_step(sid, 0)
+        assert res["history_steps"][0]["enabled"] is False
+        np.testing.assert_array_equal(s.current_image, base)
+
+    def test_delete_step_removes_and_recomputes(self):
+        from app.services.session_manager import delete_history_step
+        from app.services import registry
+
+        sid = self._upload()
+        s = get_session(sid)
+        base = s.original.copy()
+        img1 = registry.execute_operation("brightness", base, {"beta": 25})
+        s.push(img1, "brightness", {"beta": 25})
+        img2 = registry.execute_operation("negative", img1, {})
+        s.push(img2, "negative", {})
+
+        res = delete_history_step(sid, 0)
+        assert len(res["history"]) == 1
+        assert res["history_index"] == 0
+        expected = registry.execute_operation("negative", base, {})
+        np.testing.assert_array_equal(s.current_image, expected)
+
+    def test_delete_active_step_zero_after_undo_falls_back_to_original(self):
+        from app.services.session_manager import delete_history_step
+        from app.services import registry
+
+        sid = self._upload()
+        s = get_session(sid)
+        base = s.original.copy()
+        img1 = registry.execute_operation("brightness", base, {"beta": 25})
+        s.push(img1, "brightness", {"beta": 25})
+        img2 = registry.execute_operation("negative", img1, {})
+        s.push(img2, "negative", {})
+
+        # Undo once so history_index == 0, then delete step 0
+        s.undo()
+        assert s.history_index == 0
+        res = delete_history_step(sid, 0)
+        assert res["history_index"] == -1
+        np.testing.assert_array_equal(s.current_image, base)
+        assert "beta=25" not in res["history_steps"][0]["label"]
+
 
 class TestExport:
     def _upload_and_get_sid(self) -> str:

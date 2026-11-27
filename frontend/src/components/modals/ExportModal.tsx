@@ -46,7 +46,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-panel border border-panelBorder rounded-sm w-full max-w-md shadow-xl overflow-hidden">
+      <div className="bg-panel border border-panelBorder rounded-sm w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-panelBorder bg-white">
           <h2 className="text-sm font-bold text-textPrimary tracking-tight">Export Processed Image</h2>
@@ -80,7 +80,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   onClick={() => setFormat(fmt)}
                   className={`py-2 px-3 rounded-sm text-xs font-semibold uppercase border transition cursor-pointer ${
                     format === fmt
-                      ? 'border-accent bg-subtleBg text-accent shadow-xs'
+                      ? 'border-accent bg-subtleBg text-accent'
                       : 'border-panelBorder bg-white text-mutedText hover:text-textPrimary'
                   }`}
                 >
@@ -136,7 +136,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <button
               type="button"
               onClick={onDownloadHistogram}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-sm border border-panelBorder bg-white text-xs font-medium text-textPrimary hover:bg-subtleBg transition cursor-pointer shadow-xs"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-sm border border-panelBorder bg-white text-xs font-medium text-textPrimary hover:bg-subtleBg transition cursor-pointer"
             >
               <BarChart2 className="w-3.5 h-3.5 text-accent" />
               <span>Download Current Histogram Chart (PNG)</span>
@@ -157,7 +157,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             type="button"
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-sm text-xs font-semibold bg-accent text-white hover:bg-accentHover transition disabled:opacity-50 shadow-xs cursor-pointer"
+            className="flex items-center gap-2 px-4 py-1.5 rounded-sm text-xs font-semibold bg-accent text-white border border-accent hover:bg-accentHover transition disabled:opacity-50 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>{isExporting ? 'Exporting...' : 'Download Image'}</span>

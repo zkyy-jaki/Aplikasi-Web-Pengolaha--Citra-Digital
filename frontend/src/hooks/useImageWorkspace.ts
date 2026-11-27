@@ -4,12 +4,15 @@ import {
   loadSampleImage,
   processImage,
   applyHistoryAction,
+  toggleHistoryStep,
+  deleteHistoryStep,
   AppApiError,
 } from '@/services/api';
 import {
   OperationType,
   AnyOperationParams,
   HistogramResult,
+  HistoryStepItem,
   ViewMode,
   ZoomLevel,
 } from '@/types/operations';
@@ -39,6 +42,7 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
 
   // History Stack
   const [historyList, setHistoryList] = useState<string[]>([]);
+  const [historySteps, setHistorySteps] = useState<HistoryStepItem[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
   // Operation & Parameters
@@ -121,6 +125,7 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
       setOriginalHistogram(res.histogram);
       setCurrentHistogram(res.histogram);
       setHistoryList(['Original Image']);
+      setHistorySteps([]);
       setHistoryIndex(0);
       setProcessingTimeMs(0);
       setOtsuCalculatedT(null);
@@ -152,6 +157,7 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
       setOriginalHistogram(res.histogram);
       setCurrentHistogram(res.histogram);
       setHistoryList(['Original Image']);
+      setHistorySteps([]);
       setHistoryIndex(0);
       setProcessingTimeMs(0);
       setOtsuCalculatedT(null);
@@ -196,12 +202,34 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
         setCurrentHistogram(res.histogram);
         setProcessingTimeMs(res.processing_time_ms);
 
-        // Update history
-        setHistoryList((prev) => {
-          const truncated = prev.slice(0, historyIndex + 1);
-          return [...truncated, `${activeOp} applied`];
-        });
-        setHistoryIndex((prev) => prev + 1);
+        // Update history from backend response when available, otherwise cap at 10 locally
+        if (res.history && res.history_steps && typeof res.history_index === 'number') {
+          setHistoryList(['Original Image', ...res.history]);
+          setHistorySteps(res.history_steps);
+          setHistoryIndex(res.history_index + 1);
+        } else {
+          setHistoryList((prev) => {
+            const truncated = prev.slice(0, historyIndex + 1);
+            const committed = truncated.slice(1);
+            const capped = committed.length >= 10 ? committed.slice(1) : committed;
+            return ['Original Image', ...capped, `${activeOp} applied`];
+          });
+          setHistorySteps((prev) => {
+            const truncated = prev.slice(0, historyIndex);
+            const capped = truncated.length >= 10 ? truncated.slice(1) : truncated;
+            return [
+              ...capped,
+              {
+                id: `${Date.now()}-${capped.length}`,
+                operation: activeOp,
+                params: { ...(draftParams as unknown as Record<string, unknown>) },
+                label: activeOp,
+                enabled: true,
+              },
+            ];
+          });
+          setHistoryIndex((prev) => Math.min(10, prev + 1));
+        }
       } catch (err: unknown) {
         if (err instanceof AppApiError) {
           setErrorMessage({ title: err.message, detail: err.detail });
@@ -227,9 +255,62 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
         setCurrentPreviewB64(res.preview_base64);
         setLivePreviewB64(res.preview_base64);
         setCurrentHistogram(res.histogram);
-        setHistoryIndex(res.history_index);
+        setHistoryIndex(res.history_index + 1);
         setHistoryList(['Original Image', ...res.history]);
+        if (res.history_steps) {
+          setHistorySteps(res.history_steps);
+        } else if (action === 'reset') {
+          setHistorySteps([]);
+        }
         setOtsuCalculatedT(null);
+      } catch (err: unknown) {
+        if (err instanceof AppApiError) {
+          setErrorMessage({ title: err.message, detail: err.detail });
+        }
+      }
+    },
+    [sessionId]
+  );
+
+  // Toggle visibility of a committed history step
+  const handleToggleHistoryStep = useCallback(
+    async (stepIndex: number) => {
+      if (!sessionId) return;
+      setErrorMessage(null);
+      try {
+        const res = await toggleHistoryStep(sessionId, stepIndex);
+        setCurrentPreviewB64(res.preview_base64);
+        setLivePreviewB64(res.preview_base64);
+        setCurrentHistogram(res.histogram);
+        setHistoryIndex(res.history_index + 1);
+        setHistoryList(['Original Image', ...res.history]);
+        if (res.history_steps) {
+          setHistorySteps(res.history_steps);
+        }
+      } catch (err: unknown) {
+        if (err instanceof AppApiError) {
+          setErrorMessage({ title: err.message, detail: err.detail });
+        }
+      }
+    },
+    [sessionId]
+  );
+
+  // Delete a committed history step
+  const handleDeleteHistoryStep = useCallback(
+    async (stepIndex: number) => {
+      if (!sessionId) return;
+      setErrorMessage(null);
+      try {
+        const res = await deleteHistoryStep(sessionId, stepIndex);
+        setCurrentPreviewB64(res.preview_base64);
+        setLivePreviewB64(res.preview_base64);
+        setCurrentHistogram(res.histogram);
+        setHistoryIndex(res.history_index + 1);
+        setHistoryList(['Original Image', ...res.history]);
+        if (res.history_steps) {
+          setHistorySteps(res.history_steps);
+        }
       } catch (err: unknown) {
         if (err instanceof AppApiError) {
           setErrorMessage({ title: err.message, detail: err.detail });
@@ -248,6 +329,7 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
     originalHistogram,
     currentHistogram,
     historyList,
+    historySteps,
     historyIndex,
     activeOp,
     draftParams,
@@ -273,5 +355,7 @@ export function useImageWorkspace(pauseDebouncedPreview: boolean = false) {
     handleApply,
     handleCancel,
     handleHistoryAction,
+    handleToggleHistoryStep,
+    handleDeleteHistoryStep,
   };
 }

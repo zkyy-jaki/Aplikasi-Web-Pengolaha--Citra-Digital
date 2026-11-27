@@ -59,6 +59,8 @@ class HistoryEntry:
     image: NDArray[np.uint8]
     operation: str
     params: dict
+    enabled: bool = True
+    step_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
 
 
 @dataclass
@@ -72,7 +74,7 @@ class SessionState:
 
     @property
     def current_image(self) -> NDArray[np.uint8]:
-        if self.history_index < 0:
+        if self.history_index < 0 or not self.history:
             return self.original
         return self.history[self.history_index].image
 
@@ -85,6 +87,42 @@ class SessionState:
         self.history.append(HistoryEntry(image=image.copy(), operation=operation, params=params))
         self.history_index = len(self.history) - 1
         self.last_accessed = time.time()
+
+    def recompute_from(self, start_index: int = 0) -> None:
+        from app.services import registry
+
+        start = max(0, start_index)
+        running_img = self.original.copy() if start == 0 else self.history[start - 1].image.copy()
+        for idx in range(start, len(self.history)):
+            entry = self.history[idx]
+            if entry.enabled:
+                res = registry.execute_operation(entry.operation, running_img, entry.params)
+                if isinstance(res, tuple):
+                    res = res[0]
+                running_img = res.copy()
+            entry.image = running_img.copy()
+
+    def toggle_step(self, step_index: int) -> NDArray[np.uint8]:
+        if step_index < 0 or step_index >= len(self.history):
+            raise HistoryError("Indeks langkah riwayat tidak valid")
+        self.history[step_index].enabled = not self.history[step_index].enabled
+        self.recompute_from(step_index)
+        self.last_accessed = time.time()
+        return self.current_image
+
+    def delete_step(self, step_index: int) -> NDArray[np.uint8]:
+        if step_index < 0 or step_index >= len(self.history):
+            raise HistoryError("Indeks langkah riwayat tidak valid")
+        self.history.pop(step_index)
+        if not self.history:
+            self.history_index = -1
+        else:
+            if self.history_index >= step_index:
+                self.history_index -= 1
+            self.history_index = min(self.history_index, len(self.history) - 1)
+            self.recompute_from(step_index)
+        self.last_accessed = time.time()
+        return self.current_image
 
     def undo(self) -> NDArray[np.uint8]:
         if self.history_index < 0:
@@ -109,6 +147,31 @@ class SessionState:
     def history_labels(self) -> list[str]:
         return [
             f"{i + 1}. {e.operation} {e.params}" for i, e in enumerate(self.history)
+        ]
+
+    def history_steps(self) -> list[dict]:
+        def _fmt_label(op: str, params: dict) -> str:
+            if not params:
+                return op
+            vals = []
+            for k, v in params.items():
+                if isinstance(v, list):
+                    vals.append(f"{len(v)}x{len(v)}")
+                elif isinstance(v, str):
+                    vals.append(v)
+                else:
+                    vals.append(f"{k}={v}")
+            return f"{op} ({', '.join(vals)})"
+
+        return [
+            {
+                "id": e.step_id,
+                "operation": e.operation,
+                "params": e.params,
+                "label": _fmt_label(e.operation, e.params),
+                "enabled": e.enabled,
+            }
+            for e in self.history
         ]
 
 
@@ -200,21 +263,38 @@ def get_session(session_id: str) -> SessionState:
     return session
 
 
+def _build_history_response(session: SessionState, image: NDArray[np.uint8]) -> dict:
+    hist = compute_histogram(image)
+    preview = _make_preview_b64(image)
+    return {
+        "session_id": session.session_id,
+        "history": session.history_labels(),
+        "history_steps": session.history_steps(),
+        "history_index": session.history_index,
+        "preview_base64": preview,
+        "histogram": hist.model_dump(),
+    }
+
+
 def apply_history_action(
     session_id: str, action: Literal["undo", "redo", "reset"]
 ) -> dict:
     session = get_session(session_id)
     dispatch = {"undo": session.undo, "redo": session.redo, "reset": session.reset}
     image = dispatch[action]()
-    hist = compute_histogram(image)
-    preview = _make_preview_b64(image)
-    return {
-        "session_id": session_id,
-        "history": session.history_labels(),
-        "history_index": session.history_index,
-        "preview_base64": preview,
-        "histogram": hist.model_dump(),
-    }
+    return _build_history_response(session, image)
+
+
+def toggle_history_step(session_id: str, step_index: int) -> dict:
+    session = get_session(session_id)
+    image = session.toggle_step(step_index)
+    return _build_history_response(session, image)
+
+
+def delete_history_step(session_id: str, step_index: int) -> dict:
+    session = get_session(session_id)
+    image = session.delete_step(step_index)
+    return _build_history_response(session, image)
 
 
 # ---------------------------------------------------------------------------

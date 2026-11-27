@@ -24,13 +24,13 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
   if (activeOp === 'blur_gaussian') {
     const p = params as GaussianBlurParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
               Kernel Size (Odd)
             </label>
-            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder shadow-xs">
+            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder">
               {p.kernel_size}×{p.kernel_size}
             </span>
           </div>
@@ -50,7 +50,7 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
               Sigma (σ)
             </label>
-            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder shadow-xs">
+            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder">
               {p.sigma === 0 ? '0 (Auto)' : p.sigma.toFixed(1)}
             </span>
           </div>
@@ -71,13 +71,13 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
   if (activeOp === 'blur_averaging') {
     const p = params as AveragingBlurParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
               Box Kernel Size
             </label>
-            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder shadow-xs">
+            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder">
               {p.kernel_size}×{p.kernel_size}
             </span>
           </div>
@@ -91,9 +91,6 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             className="w-full cursor-pointer"
           />
         </div>
-        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm">
-          Uniform convolution box filter where every kernel element has an equal weight of 1/(k×k).
-        </p>
       </div>
     );
   }
@@ -101,13 +98,13 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
   if (activeOp === 'blur_median') {
     const p = params as MedianBlurParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
               Aperture Size
             </label>
-            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder shadow-xs">
+            <span className="font-mono text-xs text-textPrimary font-semibold bg-white px-2 py-0.5 rounded-sm border border-panelBorder">
               {p.kernel_size}×{p.kernel_size}
             </span>
           </div>
@@ -120,9 +117,6 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             onChange={(e) => onChange({ kernel_size: parseInt(e.target.value, 10) })}
             className="w-full cursor-pointer"
           />
-        </div>
-        <div className="bg-subtleBg/70 border border-panelBorder p-2.5 rounded-sm text-[11px] text-mutedText leading-relaxed">
-          <span className="text-accent font-semibold">Salt-and-Pepper Benchmark:</span> Non-linear rank filter replacing central pixel with median value, eliminating impulse noise without blurring edges.
         </div>
       </div>
     );
@@ -131,7 +125,7 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
   if (activeOp === 'blur_bilateral') {
     const p = params as BilateralBlurParams;
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-xs text-mutedText font-semibold">Pixel Diameter (d)</label>
@@ -178,10 +172,6 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             className="w-full cursor-pointer"
           />
         </div>
-
-        <p className="text-[11px] text-mutedText leading-relaxed bg-subtleBg/70 border border-panelBorder p-2 rounded-sm">
-          Edge-Preserving: Weights both Euclidean geometric closeness and radiometric color difference.
-        </p>
       </div>
     );
   }
@@ -223,7 +213,7 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
     };
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="flex justify-between items-center">
           <label className="text-xs font-semibold text-mutedText uppercase tracking-wider">
             Matrix Size
@@ -232,8 +222,10 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             <button
               type="button"
               onClick={() => handleSizeToggle(3)}
-              className={`px-2 py-0.5 text-xs rounded-sm transition cursor-pointer ${
-                size === 3 ? 'bg-accent text-white font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
+              className={`px-2 py-0.5 text-xs font-mono rounded-sm border transition cursor-pointer ${
+                size === 3
+                  ? 'bg-accent text-white border-accent font-semibold'
+                  : 'border-transparent text-mutedText hover:text-textPrimary'
               }`}
             >
               3×3
@@ -241,8 +233,10 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             <button
               type="button"
               onClick={() => handleSizeToggle(5)}
-              className={`px-2 py-0.5 text-xs rounded-sm transition cursor-pointer ${
-                size === 5 ? 'bg-accent text-white font-semibold shadow-xs' : 'text-mutedText hover:text-textPrimary'
+              className={`px-2 py-0.5 text-xs font-mono rounded-sm border transition cursor-pointer ${
+                size === 5
+                  ? 'bg-accent text-white border-accent font-semibold'
+                  : 'border-transparent text-mutedText hover:text-textPrimary'
               }`}
             >
               5×5
@@ -256,7 +250,10 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
             onChange={(e) => {
               const preset = MATRIX_PRESETS.find((pr) => pr.name === e.target.value);
               if (preset) {
-                onChange({ kernel: preset.params.kernel, auto_normalize: preset.params.auto_normalize });
+                onChange({
+                  kernel: preset.params.kernel,
+                  auto_normalize: preset.params.auto_normalize,
+                });
               }
             }}
             className="w-full bg-white border border-panelBorder text-xs rounded-sm px-2 py-1.5 text-textPrimary cursor-pointer focus:outline-none focus:border-accent"
@@ -274,7 +271,7 @@ export const BlurControls: React.FC<BlurControlsProps> = ({
         <div>
           <label className="text-xs text-mutedText font-semibold block mb-1">Kernel Weights</label>
           <div
-            className="grid gap-1 bg-subtleBg p-2 rounded-sm border border-panelBorder"
+            className="grid gap-1 bg-subtleBg p-1.5 rounded-sm border border-panelBorder"
             style={{
               gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
             }}
