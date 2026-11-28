@@ -45,11 +45,16 @@
 ### 4. Geometri, Transparansi, & Workstation
 - **Mirroring:** Pencerminan `None`, `Horizontal`, `Vertical`, dan `Both` via NumPy slicing dengan `np.ascontiguousarray` agar aman saat kompresi ekspor.
 - **Alpha Channel Preservation:** Seluruh operasi mengisolasi dan memulihkan kanal Alpha (`split_alpha` & `merge_alpha`) sehingga gambar PNG transparan tetap mempertahankan transparansinya.
-- **Inspeksi Visual & History:** Mode tampilan `Single`, `Side-by-Side`, dan `Split-Slider`; grafik histogram 256-bin (`RGB` / `Luma`, `Current` / `Original`, unduh PNG) dengan statistik `MIN`, `MAX`, `MEAN`, `STD`; *history stack* non-destruktif (`Undo`, `Redo`, `Reset`); serta ekspor `PNG`, `JPEG` (slider kualitas), dan `BMP`.
+- **Vertical Stacked Histogram (Original vs. Current):** Panel histogram menampilkan **Histogram Original** di bagian atas dan **Histogram Current (Filtered)** tepat di bawahnya secara vertikal dengan lebar, tinggi container (`h-20`), dan skala sumbu X (`0–255`, 256-bin) yang seragam (`RGB` / `Luma`, unduh PNG) lengkap dengan statistik tabular 4 kolom (`MIN`, `MAX`, `MEAN`, `STD`) agar pergeseran distribusi intensitas piksel langsung terlihat jelas.
+- **Technical Specification & Interactive Layer Stack:** Kotak spesifikasi rumus matematis & matriks kernel (`EQUATION / KERNEL`) yang berubah secara dinamis mengikuti parameter aktif, HUD telemetri koordinat piksel (`X`, `Y`, `DIM`, `ZOOM`, `ms`), mode viewport (`Single`, `Side-by-Side`, `Split-Slider`), serta *Pipeline History* berorientasi layer dengan fitur *Toggle Visibility* (`Eye`/`EyeOff`), *Delete Layer* (`Trash`), `Undo`, `Redo`, `Reset`, dan ekspor `PNG`, `JPEG`, maupun `BMP`.
 
-### 5. Input Kamera (Webcam)
-- **Mode Snapshot to Workspace:** Mengambil foto beresolusi penuh dari webcam (dengan opsi *Mirror* dan pemilihan perangkat kamera), langsung mengunggahnya ke sesi standar agar dapat diolah lengkap dengan histogram, history, dan ekspor, serta otomatis mematikan stream kamera setelah pengambilan gambar.
-- **Mode Live Real-Time Processing (Stateless):** Mengaktifkan preview filter secara langsung pada feed webcam melalui endpoint stateless `POST /api/images/process-frame` tanpa membuat sesi, tanpa mengisi *history stack*, dan tanpa menghitung histogram per frame. Dilengkapi pilihan batas resolusi (`320px`, `480px`, `640px`, `1080p`), *throttling* (~15 FPS cap), *busy guard* (maksimal 1 request *in-flight*), serta pembacaan `FPS` dan `ms/frame` pada status bar.
+### 5. Input Kamera (Webcam) & Real-Time Live Histogram
+- **Mode Snapshot to Workspace:** Mengambil foto beresolusi penuh dari webcam (dengan opsi *Mirror* dan pemilihan perangkat kamera), langsung mengunggahnya ke sesi standar agar dapat diolah lengkap dengan histogram, *pipeline history*, dan ekspor, serta otomatis mematikan stream kamera setelah pengambilan gambar.
+- **Mode Live Real-Time Processing & Live Histogram:**
+  - **Optimasi Downscaling Internal `320px`:** Mengunci resolusi pemrosesan internal pada canvas **Live Filtered** di lebar maksimal **320px** (tinggi dihitung proporsional mengikuti *aspect ratio* asli stream kamera) melalui endpoint `POST /api/images/process-frame` untuk menghindari *bottleneck* saat menjalankan operasi konvolusi berat (*Gaussian*, *Averaging*, *Median*, *Bilateral*, dan *Standard Filter 2D*).
+  - **Sinkronisasi Dimensi & Aspect Ratio Visual:** Container tampilan **Raw Camera** (`<video>`) dan **Live Filtered** (`<canvas>`) menggunakan CSS `aspect-ratio` dinamis yang seragam serta `w-full h-full object-contain`, sehingga panjang, lebar, dan rasio aspek kedua tampilan identik secara visual di layar (baik pada mode `Single` maupun `Side-by-Side`).
+  - **Real-Time Live Histogram (`ImageData` 320px):** Memperbarui grafik **Histogram Original** (atas) dan **Histogram Current / Filtered** (bawah) secara *real-time* langsung dari buffer piksel `ImageData` canvas 320px dengan *throttling* `80ms` (`< 0.5 ms` per kalkulasi) agar tidak memblokir *main thread* atau menurunkan *frame rate*.
+  - **Proteksi Jaringan & Telemetri:** Dilengkapi *throttling* (~15 FPS cap), *busy guard* (maksimal 1 request *in-flight*), pembatalan otomatis via `AbortController` saat parameter slider berubah, serta indikator `FPS` dan `ms/frame` pada status bar.
 
 ---
 
@@ -118,7 +123,7 @@ python -m pytest tests -v
 cd frontend
 
 # Pengecekan tipe TypeScript (Strict Mode)
-npx tsc --noEmit
+npm run typecheck
 
 # Linter kode frontend
 npm run lint
@@ -135,44 +140,30 @@ npm run build
 Projek Akhir PC/
 ├── README.md
 ├── .gitignore
-├── docs/
-│   └── prd_aplikasi_web_pengolahan_citra_digital.md
-├── UI/
-│   └── uiux.webp
 ├── backend/
 │   ├── pyproject.toml
 │   ├── requirements.txt
-│   ├── app/
-│   │   ├── main.py                  # Entrypoint FastAPI, CORS & exception handler
-│   │   ├── core/
-│   │   │   ├── config.py            # Konfigurasi batas file, preview, history & live frame
-│   │   │   ├── exceptions.py        # Hirarki domain exception (AppError)
-│   │   │   └── logging.py           # Structured logging
-│   │   ├── routers/
-│   │   │   ├── images.py            # /api/images (upload, process, process-frame, history, export)
-│   │   │   └── samples.py           # /api/samples
-│   │   ├── samples/
-│   │   │   └── generator.py         # Generator 3 gambar sampel benchmark
-│   │   └── services/
-│   │       ├── core_conv.py         # Engine konvolusi 2D/separable & konversi warna BT.601
-│   │       ├── registry.py          # Operation Registry Pattern & validasi parameter
-│   │       ├── alpha_utils.py       # Isolasi & pelestarian kanal Alpha PNG
-│   │       ├── ops_point.py         # Grayscale, Brightness, Negative, Threshold, Otsu, Equalize, CLAHE
-│   │       ├── ops_blur.py          # Gaussian, Averaging, Median, Bilateral, Standard Filter 2D
-│   │       ├── ops_detail.py        # Sharpening, Sobel, Prewitt, Laplacian, Canny 5-stage, Sketch
-│   │       ├── ops_geometry.py      # Mirroring (Horizontal, Vertical, Both)
-│   │       ├── histogram.py         # Kalkulasi histogram 256-bin & statistik piksel
-│   │       └── session_manager.py   # Validasi magic bytes, history stack, downscale, export
-│   └── tests/                       # 131 unit & integration tests Pytest
-│       ├── conftest.py
-│       ├── test_histogram.py
-│       ├── test_live_frame.py
-│       ├── test_ops_blur.py
-│       ├── test_ops_detail.py
-│       ├── test_ops_geometry.py
-│       ├── test_ops_point.py
-│       ├── test_registry_api.py
-│       └── test_session.py
+│   └── app/
+│       ├── main.py                  # Entrypoint FastAPI, CORS & exception handler
+│       ├── core/
+│       │   ├── config.py            # Konfigurasi batas file, preview, history & live frame
+│       │   ├── exceptions.py        # Hirarki domain exception (AppError)
+│       │   └── logging.py           # Structured logging
+│       ├── routers/
+│       │   ├── images.py            # /api/images (upload, process, process-frame, history, export)
+│       │   └── samples.py           # /api/samples
+│       ├── samples/
+│       │   └── generator.py         # Generator 3 gambar sampel benchmark
+│       └── services/
+│           ├── core_conv.py         # Engine konvolusi 2D/separable & konversi warna BT.601
+│           ├── registry.py          # Operation Registry Pattern & validasi parameter
+│           ├── alpha_utils.py       # Isolasi & pelestarian kanal Alpha PNG
+│           ├── ops_point.py         # Grayscale, Brightness, Negative, Threshold, Otsu, Equalize, CLAHE
+│           ├── ops_blur.py          # Gaussian, Averaging, Median, Bilateral, Standard Filter 2D
+│           ├── ops_detail.py        # Sharpening, Sobel, Prewitt, Laplacian, Canny 5-stage, Sketch
+│           ├── ops_geometry.py      # Mirroring (Horizontal, Vertical, Both)
+│           ├── histogram.py         # Kalkulasi histogram 256-bin & statistik piksel
+│           └── session_manager.py   # Validasi magic bytes, layer history stack, downscale, export
 └── frontend/
     ├── index.html
     ├── package.json
@@ -181,24 +172,26 @@ Projek Akhir PC/
     ├── tailwind.config.js           # Palet Light Pastel Pink (Soft Blush)
     └── src/
         ├── main.tsx                 # Root render dengan ErrorBoundary
-        ├── App.tsx                  # Layout 3-panel, kamera & keyboard shortcuts
+        ├── App.tsx                  # Layout 3-panel, sinkronisasi live histogram & keyboard shortcuts
         ├── index.css                # Styling global, dot-grid canvas & checkerboard PNG
         ├── types/
-        │   └── operations.ts        # Discriminated union types kontrak API
+        │   └── operations.ts        # Discriminated union types kontrak API & layer history
         ├── constants/
-        │   └── operations.ts        # Metadata operasi, nilai default & preset matriks
+        │   └── operations.ts        # Metadata 17 operasi, rumus matematis dinamis & preset matriks
+        ├── utils/
+        │   └── liveHistogram.ts     # Downscaling proporsional 320px & kalkulasi cepat histogram ImageData
         ├── services/
-        │   └── api.ts               # HTTP client, error mapper & processLiveFrame
+        │   └── api.ts               # HTTP client, layer history endpoints & processLiveFrame
         ├── hooks/
-        │   ├── useImageWorkspace.ts # Manajemen state sesi, viewport & history
+        │   ├── useImageWorkspace.ts # Manajemen state sesi, viewport & non-destructive layer stack
         │   ├── useDebouncedPreview.ts # Live preview debounce 180ms + AbortController
-        │   └── useWebcam.ts         # Siklus hidup webcam, snapshot & live filter loop
+        │   └── useWebcam.ts         # Siklus hidup webcam, snapshot, loop live filter 320px & live histogram
         └── components/
             ├── layout/
-            │   ├── TopBar.tsx       # Open Image, Use Camera, metadata, view mode, zoom & export
-            │   ├── LeftSidebar.tsx  # Daftar kategori & 17 operasi citra
-            │   ├── CenterStage.tsx  # Viewport kanvas (Single/Side-by-Side/Split) & Camera Mode
-            │   └── RightInspector.tsx # Histogram, parameter kontrol dinamis & history stack
+            │   ├── TopBar.tsx       # Header instrumen, metadata file, view mode, zoom & export
+            │   ├── LeftSidebar.tsx  # Pencarian cepat & accordion kategori 17 operasi citra
+            │   ├── CenterStage.tsx  # Viewport kanvas, HUD telemetri & sinkronisasi aspect-ratio kamera
+            │   └── RightInspector.tsx # Vertical stacked histogram (Original/Current), rumus & layer stack
             ├── controls/
             │   ├── ToneColorControls.tsx
             │   ├── BlurControls.tsx
@@ -218,4 +211,4 @@ Projek Akhir PC/
 - **Port 8000 atau 3000 sudah digunakan:** Jalankan backend di port alternatif (misalnya `--port 8001`) lalu perbarui target proxy di `frontend/vite.config.ts`.
 - **Upload ditolak (`INVALID_FILE`):** Backend memvalidasi *magic bytes* file secara langsung, bukan ekstensi nama. Pastikan berkas benar-benar berformat gambar valid (JPEG, PNG, BMP, atau WebP).
 - **Kamera tidak dapat diakses di browser:** API `navigator.mediaDevices.getUserMedia` hanya diizinkan oleh browser pada origin `http://localhost` atau `https://`. Pastikan izin kamera di browser tidak diblokir dan webcam tidak sedang dipakai oleh aplikasi lain.
-- **FPS rendah saat Live Filter pada resolusi 1080p:** Filter komputasi berat (*Bilateral*, *Median*, atau *Canny*) di atas Pure NumPy membutuhkan waktu pemrosesan lebih lama per frame pada `1080p`. *Busy guard* secara otomatis mencegah antrean request menumpuk; turunkan pemilih resolusi di bar kamera ke `480px` atau `320px` untuk responsivitas tinggi.
+- **Performa Live Filter & Real-Time Histogram:** Resolusi internal pemrosesan frame pada mode **Live Filter** telah dikunci secara otomatis pada lebar maksimal `320px` (dengan tinggi proporsional dan tampilan visual yang tetap mengikuti rasio aspek asli kamera) serta *throttling* histogram `80ms`, sehingga operasi konvolusi berat (*Bilateral*, *Median*, *Gaussian*, *Filter 2D*) dan pembaruan grafik histogram tetap berjalan responsif tanpa membebani *main thread*.
