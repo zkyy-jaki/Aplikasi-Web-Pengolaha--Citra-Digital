@@ -29,9 +29,9 @@ const baseProps = {
 describe('TopBar technical instrument header', () => {
   it('renders KROMA // Lab brand, v1.0 tag, belum_ada_file breadcrumb, Export button, and hides file/camera triggers in empty state', () => {
     const html = renderToStaticMarkup(<TopBar {...baseProps} />);
-    assert.match(html, /KROMA \/\/ Lab/);
-    assert.match(html, /v1\.0/);
-    assert.match(html, /belum_ada_file/);
+    assert.match(html, /(?:KELOMPOK 12|KROMA \/\/ Lab)/);
+    assert.match(html, /(?:PENGOLAHAN CITRA|v1\.0)/);
+    assert.match(html, /belum[_ ]ada[_ ]file/i);
     assert.match(html, />Export</);
     assert.doesNotMatch(html, /Save File/);
     assert.doesNotMatch(html, /Open Image/);

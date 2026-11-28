@@ -60,11 +60,11 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   onDeleteHistoryStep,
 }) => {
   const [histMode, setHistMode] = useState<'rgb' | 'gray'>('rgb');
-  const [histTarget, setHistTarget] = useState<'current' | 'original'>('current');
   const chartRef = useRef<HTMLDivElement>(null);
   const effectiveHasImage = hasImage && !isCameraOpen;
+  const hasActiveHistogram = effectiveHasImage || (isCameraOpen && isLiveFilter);
+  const activeStats = currentHistogram?.stats ?? originalHistogram?.stats ?? null;
 
-  const activeHist = histTarget === 'current' ? currentHistogram : originalHistogram;
   const opMeta = OPERATIONS.find((o) => o.id === activeOp);
   const equationSpec = getOperationEquation(activeOp, draftParams);
 
@@ -97,47 +97,157 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
     }));
   }, [historySteps, historyList]);
 
-  // Prepare chart data (256 bins)
-  const chartData = React.useMemo(() => {
-    if (!effectiveHasImage || !activeHist || !activeHist.channels || activeHist.channels.length === 0) {
-      return [];
-    }
-
-    const data: { bin: number; red?: number; green?: number; blue?: number; gray?: number }[] = [];
-    const chMap = new Map(activeHist.channels.map((c) => [c.channel, c.values]));
-
-    const redVals = chMap.get('red');
-    const greenVals = chMap.get('green');
-    const blueVals = chMap.get('blue');
-    const grayVals = chMap.get('gray');
-
-    for (let i = 0; i < 256; i++) {
-      if (histMode === 'rgb' && redVals && greenVals && blueVals) {
-        data.push({
-          bin: i,
-          red: redVals[i] || 0,
-          green: greenVals[i] || 0,
-          blue: blueVals[i] || 0,
-        });
-      } else {
-        const gVal =
-          grayVals?.[i] ??
-          (redVals && greenVals && blueVals
-            ? Math.round(0.299 * redVals[i] + 0.587 * greenVals[i] + 0.114 * blueVals[i])
-            : 0);
-        data.push({
-          bin: i,
-          gray: gVal,
-        });
+  // Helper to build 256-bin chart data (0..255) for either Original or Current histogram
+  const buildHistogramChartData = React.useCallback(
+    (hist: HistogramResult | null) => {
+      if (!hasActiveHistogram || !hist || !hist.channels || hist.channels.length === 0) {
+        return [];
       }
+
+      const data: { bin: number; red?: number; green?: number; blue?: number; gray?: number }[] =
+        [];
+      const chMap = new Map(hist.channels.map((c) => [c.channel, c.values]));
+
+      const redVals = chMap.get('red');
+      const greenVals = chMap.get('green');
+      const blueVals = chMap.get('blue');
+      const grayVals = chMap.get('gray');
+
+      for (let i = 0; i < 256; i++) {
+        if (histMode === 'rgb' && redVals && greenVals && blueVals) {
+          data.push({
+            bin: i,
+            red: redVals[i] || 0,
+            green: greenVals[i] || 0,
+            blue: blueVals[i] || 0,
+          });
+        } else {
+          const gVal =
+            grayVals?.[i] ??
+            (redVals && greenVals && blueVals
+              ? Math.round(0.299 * redVals[i] + 0.587 * greenVals[i] + 0.114 * blueVals[i])
+              : 0);
+          data.push({
+            bin: i,
+            gray: gVal,
+          });
+        }
+      }
+      return data;
+    },
+    [hasActiveHistogram, histMode]
+  );
+
+  const originalChartData = React.useMemo(
+    () => buildHistogramChartData(originalHistogram),
+    [buildHistogramChartData, originalHistogram]
+  );
+  const currentChartData = React.useMemo(
+    () => buildHistogramChartData(currentHistogram),
+    [buildHistogramChartData, currentHistogram]
+  );
+
+  const renderHistogramChart = (
+    data: { bin: number; red?: number; green?: number; blue?: number; gray?: number }[],
+    emptyLabel: string
+  ) => {
+    if (isCameraOpen && !isLiveFilter) {
+      return (
+        <div className="h-full flex items-center justify-center text-[10px] text-mutedText font-mono text-center px-3">
+          Turn on Live Filter or capture snapshot to view histogram
+        </div>
+      );
     }
-    return data;
-  }, [effectiveHasImage, activeHist, histMode]);
+    if (!hasActiveHistogram) {
+      return (
+        <div className="h-full flex items-center justify-center text-[11px] text-mutedText font-mono">
+          {emptyLabel}
+        </div>
+      );
+    }
+    if (data.length === 0) {
+      return (
+        <div className="h-full flex items-center justify-center text-[10px] text-mutedText font-mono">
+          Computing histogram...
+        </div>
+      );
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+          <XAxis dataKey="bin" type="number" domain={[0, 255]} hide />
+          <YAxis hide domain={[0, 'auto']} />
+          <Tooltip
+            content={({ payload }) => {
+              if (!payload || payload.length === 0) return null;
+              const item = payload[0].payload;
+              return (
+                <div className="bg-white border border-panelBorder p-1.5 rounded-sm text-[10px] font-mono text-textPrimary">
+                  <div className="font-bold">Bin: {item.bin}</div>
+                  {item.red !== undefined && <div className="text-rose-600">R: {item.red}</div>}
+                  {item.green !== undefined && (
+                    <div className="text-emerald-600">G: {item.green}</div>
+                  )}
+                  {item.blue !== undefined && <div className="text-blue-600">B: {item.blue}</div>}
+                  {item.gray !== undefined && (
+                    <div className="text-textPrimary">Gray: {item.gray}</div>
+                  )}
+                </div>
+              );
+            }}
+          />
+          {histMode === 'rgb' ? (
+            <>
+              <Area
+                type="monotone"
+                dataKey="red"
+                stroke="#EF4444"
+                fill="#EF4444"
+                fillOpacity={0.25}
+                strokeWidth={1}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="green"
+                stroke="#10B981"
+                fill="#10B981"
+                fillOpacity={0.25}
+                strokeWidth={1}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="blue"
+                stroke="#3B82F6"
+                fill="#3B82F6"
+                fillOpacity={0.25}
+                strokeWidth={1}
+                isAnimationActive={false}
+              />
+            </>
+          ) : (
+            <Area
+              type="monotone"
+              dataKey="gray"
+              stroke="#C85A7C"
+              fill="#C85A7C"
+              fillOpacity={0.25}
+              strokeWidth={1}
+              isAnimationActive={false}
+            />
+          )}
+        </AreaChart>
+      </ResponsiveContainer>
+    );
+  };
 
   // Export Histogram chart as PNG
   const handleDownloadHistogramPng = () => {
-    if (!effectiveHasImage || !chartRef.current) return;
-    const svgElem = chartRef.current.querySelector('svg');
+    if (!hasActiveHistogram || !chartRef.current) return;
+    const svgElems = chartRef.current.querySelectorAll('svg');
+    const svgElem = svgElems[svgElems.length - 1] ?? svgElems[0];
     if (!svgElem) return;
 
     const svgData = new XMLSerializer().serializeToString(svgElem);
@@ -166,25 +276,30 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
   return (
     <aside className="w-80 bg-panel border-l border-panelBorder flex flex-col select-none shrink-0 overflow-hidden">
       {/* ------------------------------------------------------------------- */}
-      {/* SECTION 1: HISTOGRAM & 4-COLUMN MONOSPACE STATS */}
+      {/* SECTION 1: VERTICAL STACKED HISTOGRAMS (ORIGINAL TOP, CURRENT BOTTOM) */}
       {/* ------------------------------------------------------------------- */}
       <div className="p-3 border-b border-panelBorder space-y-2 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-textPrimary uppercase tracking-wider">
             <BarChart3 className="w-3.5 h-3.5 text-accent" />
             <span>Histogram</span>
+            {isCameraOpen && isLiveFilter && (
+              <span className="px-1.5 py-0.2 rounded-sm bg-subtleBg border border-accent text-[9px] font-mono text-accent font-semibold">
+                LIVE 320PX
+              </span>
+            )}
           </div>
 
           {/* Toggle buttons */}
           <div className="flex items-center gap-1">
             <div
               className={`flex bg-white rounded-sm border border-panelBorder divide-x divide-panelBorder text-[10px] font-mono overflow-hidden ${
-                !effectiveHasImage ? 'opacity-40 pointer-events-none' : ''
+                !hasActiveHistogram ? 'opacity-40 pointer-events-none' : ''
               }`}
             >
               <button
                 type="button"
-                disabled={!effectiveHasImage}
+                disabled={!hasActiveHistogram}
                 onClick={() => setHistMode('rgb')}
                 className={`px-1.5 py-0.5 transition cursor-pointer ${
                   histMode === 'rgb'
@@ -196,7 +311,7 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               </button>
               <button
                 type="button"
-                disabled={!effectiveHasImage}
+                disabled={!hasActiveHistogram}
                 onClick={() => setHistMode('gray')}
                 className={`px-1.5 py-0.5 transition cursor-pointer ${
                   histMode === 'gray'
@@ -208,40 +323,9 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
               </button>
             </div>
 
-            <div
-              className={`flex bg-white rounded-sm border border-panelBorder divide-x divide-panelBorder text-[10px] font-mono overflow-hidden ${
-                !effectiveHasImage ? 'opacity-40 pointer-events-none' : ''
-              }`}
-            >
-              <button
-                type="button"
-                disabled={!effectiveHasImage}
-                onClick={() => setHistTarget('current')}
-                className={`px-1.5 py-0.5 transition cursor-pointer ${
-                  histTarget === 'current'
-                    ? 'bg-subtleBg text-textPrimary font-semibold'
-                    : 'text-mutedText hover:text-textPrimary'
-                }`}
-              >
-                Cur
-              </button>
-              <button
-                type="button"
-                disabled={!effectiveHasImage}
-                onClick={() => setHistTarget('original')}
-                className={`px-1.5 py-0.5 transition cursor-pointer ${
-                  histTarget === 'original'
-                    ? 'bg-subtleBg text-textPrimary font-semibold'
-                    : 'text-mutedText hover:text-textPrimary'
-                }`}
-              >
-                Orig
-              </button>
-            </div>
-
             <button
               type="button"
-              disabled={!effectiveHasImage}
+              disabled={!hasActiveHistogram}
               onClick={handleDownloadHistogramPng}
               title="Download Histogram Chart (PNG)"
               className="p-1 rounded-sm bg-white hover:bg-subtleBg border border-panelBorder text-mutedText hover:text-textPrimary transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
@@ -251,114 +335,68 @@ export const RightInspector: React.FC<RightInspectorProps> = ({
           </div>
         </div>
 
-        {/* Chart View (Compact h-24 height) */}
+        {/* Vertical Stacked Charts: Original (Top) & Current/Filtered (Bottom) */}
         <div
           ref={chartRef}
-          className="h-24 w-full bg-white rounded-sm border border-panelBorder p-1 flex items-center justify-center"
+          data-testid="histogram-vertical-stack"
+          className="flex flex-col gap-1.5 w-full"
         >
-          {isCameraOpen ? (
-            <div className="h-full flex items-center justify-center text-[11px] text-mutedText font-mono text-center px-3">
-              Stateless camera mode — capture a snapshot to compute histogram
+          {/* Top Chart: Histogram Original */}
+          <div data-testid="histogram-chart-original" className="w-full space-y-0.5">
+            <div className="flex items-center justify-between text-[9px] font-mono text-mutedText uppercase px-0.5">
+              <span className="font-semibold text-textPrimary">ORIGINAL</span>
+              <span>
+                {hasActiveHistogram && originalHistogram?.stats
+                  ? `μ=${originalHistogram.stats.mean.toFixed(1)} • 0–255`
+                  : 'SCALE: 0–255'}
+              </span>
             </div>
-          ) : !effectiveHasImage ? (
-            <div className="h-full flex items-center justify-center text-xs text-mutedText font-mono">
-              No image loaded
+            <div className="h-20 w-full bg-white rounded-sm border border-panelBorder p-1 flex items-center justify-center">
+              {renderHistogramChart(originalChartData, 'No image loaded')}
             </div>
-          ) : chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-                <XAxis dataKey="bin" hide />
-                <YAxis hide domain={[0, 'auto']} />
-                <Tooltip
-                  content={({ payload }) => {
-                    if (!payload || payload.length === 0) return null;
-                    const item = payload[0].payload;
-                    return (
-                      <div className="bg-white border border-panelBorder p-1.5 rounded-sm text-[10px] font-mono text-textPrimary">
-                        <div className="font-bold">Bin: {item.bin}</div>
-                        {item.red !== undefined && <div className="text-rose-600">R: {item.red}</div>}
-                        {item.green !== undefined && <div className="text-emerald-600">G: {item.green}</div>}
-                        {item.blue !== undefined && <div className="text-blue-600">B: {item.blue}</div>}
-                        {item.gray !== undefined && <div className="text-textPrimary">Gray: {item.gray}</div>}
-                      </div>
-                    );
-                  }}
-                />
-                {histMode === 'rgb' ? (
-                  <>
-                    <Area
-                      type="monotone"
-                      dataKey="red"
-                      stroke="#EF4444"
-                      fill="#EF4444"
-                      fillOpacity={0.25}
-                      strokeWidth={1}
-                      isAnimationActive={false}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="green"
-                      stroke="#10B981"
-                      fill="#10B981"
-                      fillOpacity={0.25}
-                      strokeWidth={1}
-                      isAnimationActive={false}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="blue"
-                      stroke="#3B82F6"
-                      fill="#3B82F6"
-                      fillOpacity={0.25}
-                      strokeWidth={1}
-                      isAnimationActive={false}
-                    />
-                  </>
-                ) : (
-                  <Area
-                    type="monotone"
-                    dataKey="gray"
-                    stroke="#C85A7C"
-                    fill="#C85A7C"
-                    fillOpacity={0.25}
-                    strokeWidth={1}
-                    isAnimationActive={false}
-                  />
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center text-[10px] text-mutedText font-mono">
-              Computing histogram...
+          </div>
+
+          {/* Bottom Chart: Histogram Current (Filtered) */}
+          <div data-testid="histogram-chart-current" className="w-full space-y-0.5">
+            <div className="flex items-center justify-between text-[9px] font-mono text-mutedText uppercase px-0.5">
+              <span className="font-semibold text-accent">CURRENT (FILTERED)</span>
+              <span>
+                {hasActiveHistogram && currentHistogram?.stats
+                  ? `μ=${currentHistogram.stats.mean.toFixed(1)} • 0–255`
+                  : 'SCALE: 0–255'}
+              </span>
             </div>
-          )}
+            <div className="h-20 w-full bg-white rounded-sm border border-panelBorder p-1 flex items-center justify-center">
+              {renderHistogramChart(currentChartData, 'No image loaded')}
+            </div>
+          </div>
         </div>
 
         {/* 4-Column Monospace Tabular Stats */}
-        {effectiveHasImage && activeHist?.stats ? (
+        {hasActiveHistogram && activeStats ? (
           <div className="grid grid-cols-4 gap-1 text-center font-mono">
             <div className="bg-white py-1 px-1 rounded-sm border border-panelBorder">
               <span className="block text-[9px] text-mutedText uppercase">MIN</span>
               <span className="block text-xs font-bold text-textPrimary tabular-nums">
-                {activeHist.stats.min.toFixed(0)}
+                {activeStats.min.toFixed(0)}
               </span>
             </div>
             <div className="bg-white py-1 px-1 rounded-sm border border-panelBorder">
               <span className="block text-[9px] text-mutedText uppercase">MAX</span>
               <span className="block text-xs font-bold text-textPrimary tabular-nums">
-                {activeHist.stats.max.toFixed(0)}
+                {activeStats.max.toFixed(0)}
               </span>
             </div>
             <div className="bg-white py-1 px-1 rounded-sm border border-panelBorder">
               <span className="block text-[9px] text-mutedText uppercase">MEAN</span>
               <span className="block text-xs font-bold text-textPrimary tabular-nums">
-                {activeHist.stats.mean.toFixed(1)}
+                {activeStats.mean.toFixed(1)}
               </span>
             </div>
             <div className="bg-white py-1 px-1 rounded-sm border border-panelBorder">
               <span className="block text-[9px] text-mutedText uppercase">STD</span>
               <span className="block text-xs font-bold text-textPrimary tabular-nums">
-                {activeHist.stats.std_dev.toFixed(1)}
+                {activeStats.std_dev.toFixed(1)}
               </span>
             </div>
           </div>

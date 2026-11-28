@@ -203,8 +203,16 @@ export function App() {
         <RightInspector
           activeOp={activeOp}
           draftParams={draftParams}
-          currentHistogram={currentHistogram}
-          originalHistogram={originalHistogram}
+          currentHistogram={
+            webcam.isCameraOpen && webcam.isLiveFilter
+              ? webcam.liveCurrentHistogram
+              : currentHistogram
+          }
+          originalHistogram={
+            webcam.isCameraOpen && webcam.isLiveFilter
+              ? webcam.liveOriginalHistogram
+              : originalHistogram
+          }
           historyList={historyList}
           historySteps={historySteps}
           historyIndex={historyIndex}
