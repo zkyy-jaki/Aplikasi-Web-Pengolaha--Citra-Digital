@@ -105,7 +105,26 @@ frontend/*.tsbuildinfo
 *~
 
 # ==========================================
-# Local Notes, Revisions & Presentation Guides
+# Local Notes, Revisions, Docs & AI Plans
 # ==========================================
 PANDUAN_DEMO_DAN_PRESENTASI.md
 Revisi.md
+PLAN_*.md
+PLAN_LIVE_FILTER_PIPELINE.md
+docs/
+.superpowers/
+.claude/
+.agents/
+.gemini/
+UI/
+
+# ==========================================
+# Local Test Suites & Artifacts
+# ==========================================
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+.playwright-mcp/
+test-results/
+playwright-report/
