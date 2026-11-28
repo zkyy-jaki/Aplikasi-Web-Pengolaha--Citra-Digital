@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppApiError, processLiveFrame } from '@/services/api';
-import { AnyOperationParams, OperationType } from '@/types/operations';
+import { AnyOperationParams, HistogramResult, OperationType } from '@/types/operations';
+import {
+  LIVE_FILTER_MAX_WIDTH,
+  LIVE_HISTOGRAM_THROTTLE_MS,
+  computeHistogramFromImageData,
+  computeLiveFilterDimensions,
+} from '@/utils/liveHistogram';
 
 export type LiveResolution = 320 | 480 | 640 | 1920;
 
@@ -62,12 +68,14 @@ export function useWebcam({
   const [isCapturing, setIsCapturing] = useState(false);
   const [isLiveFilter, setIsLiveFilter] = useState(false);
   const [isMirrored, setIsMirrored] = useState(true);
-  const [liveResolution, setLiveResolution] = useState<LiveResolution>(480);
+  const [liveResolution, setLiveResolution] = useState<LiveResolution>(LIVE_FILTER_MAX_WIDTH);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [streamResolution, setStreamResolution] = useState<{ w: number; h: number } | null>(null);
   const [liveProcessingMs, setLiveProcessingMs] = useState<number>(0);
   const [liveFps, setLiveFps] = useState<number>(0);
+  const [liveOriginalHistogram, setLiveOriginalHistogram] = useState<HistogramResult | null>(null);
+  const [liveCurrentHistogram, setLiveCurrentHistogram] = useState<HistogramResult | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -122,6 +130,8 @@ export function useWebcam({
     setStreamResolution(null);
     setLiveFps(0);
     setLiveProcessingMs(0);
+    setLiveOriginalHistogram(null);
+    setLiveCurrentHistogram(null);
   }, [onOpenChange, stopStream]);
 
   const startStream = useCallback(
@@ -289,6 +299,7 @@ export function useWebcam({
     let cancelled = false;
     let rafId = 0;
     let lastSentAt = 0;
+    let lastHistogramAt = 0;
     let fpsCounter = 0;
     let fpsWindowStart = performance.now();
 
@@ -309,12 +320,13 @@ export function useWebcam({
         return;
       }
 
-      const maxSide = liveResRef.current;
-      const srcW = video.videoWidth;
-      const srcH = video.videoHeight;
-      const scale = Math.min(1, maxSide / Math.max(srcW, srcH));
-      const targetW = Math.max(1, Math.round(srcW * scale));
-      const targetH = Math.max(1, Math.round(srcH * scale));
+      // Lock internal processing resolution to max width 320px (height proportional to camera aspect ratio)
+      const maxWidth = Math.min(LIVE_FILTER_MAX_WIDTH, liveResRef.current);
+      const { width: targetW, height: targetH } = computeLiveFilterDimensions(
+        video.videoWidth,
+        video.videoHeight,
+        maxWidth
+      );
 
       const offscreen = captureCanvasRef.current ?? document.createElement('canvas');
       captureCanvasRef.current = offscreen;
@@ -360,13 +372,27 @@ export function useWebcam({
         const bitmap = await createImageBitmap(res.blob);
         try {
           if (cancelled || controller.signal.aborted) return;
-          if (displayCanvas.width !== bitmap.width || displayCanvas.height !== bitmap.height) {
-            displayCanvas.width = bitmap.width;
-            displayCanvas.height = bitmap.height;
+          if (displayCanvas.width !== targetW || displayCanvas.height !== targetH) {
+            displayCanvas.width = targetW;
+            displayCanvas.height = targetH;
           }
           const dCtx = displayCanvas.getContext('2d');
           if (dCtx) {
-            dCtx.drawImage(bitmap, 0, 0);
+            dCtx.drawImage(bitmap, 0, 0, targetW, targetH);
+
+            // Real-time throttled histogram calculated directly from downscaled 320px ImageData
+            const perfNow = performance.now();
+            if (perfNow - lastHistogramAt >= LIVE_HISTOGRAM_THROTTLE_MS) {
+              lastHistogramAt = perfNow;
+              const rawImgData = offCtx.getImageData(0, 0, targetW, targetH);
+              const filteredImgData = dCtx.getImageData(0, 0, targetW, targetH);
+              setLiveOriginalHistogram(
+                computeHistogramFromImageData(rawImgData.data, targetW, targetH)
+              );
+              setLiveCurrentHistogram(
+                computeHistogramFromImageData(filteredImgData.data, targetW, targetH)
+              );
+            }
           }
         } finally {
           bitmap.close();
@@ -426,6 +452,8 @@ export function useWebcam({
     streamResolution,
     liveProcessingMs: isCameraOpen && isLiveFilter ? liveProcessingMs : 0,
     liveFps: isCameraOpen && isLiveFilter ? liveFps : 0,
+    liveOriginalHistogram: isCameraOpen && isLiveFilter ? liveOriginalHistogram : null,
+    liveCurrentHistogram: isCameraOpen && isLiveFilter ? liveCurrentHistogram : null,
     videoRef,
     liveCanvasRef,
     openCamera: () => startStream(selectedDeviceId || undefined),
@@ -435,6 +463,8 @@ export function useWebcam({
         if (prev) {
           setLiveFps(0);
           setLiveProcessingMs(0);
+          setLiveOriginalHistogram(null);
+          setLiveCurrentHistogram(null);
         }
         return !prev;
       }),

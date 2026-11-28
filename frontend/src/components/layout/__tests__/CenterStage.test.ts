@@ -93,4 +93,41 @@ describe('CenterStage technical dropzone, lab specimens, and floating HUD', () =
     assert.match(html, /4\.2 ms/);
     assert.doesNotMatch(html, /shadow-/);
   });
+
+  it('synchronizes Raw Camera and Live Filtered viewport containers with matching aspect-ratio and w-full h-full object-contain', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(CenterStage, {
+        metadata: null,
+        originalPreviewB64: null,
+        livePreviewB64: null,
+        viewMode: 'side-by-side',
+        zoom: 'fit',
+        splitPosition: 50,
+        cursorPos: { x: null, y: null },
+        processingTimeMs: 0,
+        isProcessing: false,
+        camera: {
+          ...baseCamera,
+          isCameraOpen: true,
+          isLiveFilter: true,
+          liveResolution: 320,
+          streamResolution: { w: 1280, h: 720 },
+          liveFps: 15,
+          liveProcessingMs: 11.4,
+        },
+        videoRef: React.createRef(),
+        liveCanvasRef: React.createRef(),
+        onSelectFile: () => {},
+        onLoadSample: () => {},
+        onSplitChange: () => {},
+        onCursorMove: () => {},
+      })
+    );
+
+    assert.match(html, /data-testid="raw-camera-frame"/);
+    assert.match(html, /data-testid="live-filtered-frame"/);
+    assert.match(html, /aspect-ratio:1280 \/ 720/);
+    assert.match(html, /<video[^>]*class="[^"]*w-full h-full object-contain/);
+    assert.match(html, /<canvas[^>]*class="[^"]*w-full h-full object-contain/);
+  });
 });

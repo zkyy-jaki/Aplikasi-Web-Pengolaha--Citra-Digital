@@ -174,6 +174,9 @@ export const CenterStage: React.FC<CenterStageProps> = ({
   const originalSrc = originalPreviewB64 ? `data:image/png;base64,${originalPreviewB64}` : '';
   const processedSrc = livePreviewB64 ? `data:image/png;base64,${livePreviewB64}` : originalSrc;
   const zoomLabel = zoom === 'fit' ? 'FIT' : `${Math.round(zoom * 100)}%`;
+  const cameraAspectRatio = camera.streamResolution
+    ? `${camera.streamResolution.w} / ${camera.streamResolution.h}`
+    : '16 / 9';
 
   return (
     <main
@@ -250,20 +253,17 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                   <span>Live Filter: {camera.isLiveFilter ? 'ON' : 'OFF'}</span>
                 </button>
 
-                {/* Resolution Cap Selector (visible when Live Filter is ON) */}
+                {/* Resolution Cap Selector (visible when Live Filter is ON, locked to 320px internal width) */}
                 {camera.isLiveFilter && (
                   <select
                     value={camera.liveResolution}
                     onChange={(e) =>
                       camera.onSetLiveResolution(Number(e.target.value) as LiveResolution)
                     }
-                    title="Max frame resolution sent for live filtering"
+                    title="Internal processing width locked at 320px max for smooth real-time convolution"
                     className="bg-white border border-panelBorder rounded-sm px-2 py-1 text-xs font-mono text-textPrimary cursor-pointer focus:outline-none focus:border-accent"
                   >
-                    <option value={320}>320px (Fastest)</option>
-                    <option value={480}>480px (Default)</option>
-                    <option value={640}>640px (HD)</option>
-                    <option value={1920}>1080p (Full HD)</option>
+                    <option value={320}>320px (Locked Optimal)</option>
                   </select>
                 )}
 
@@ -295,7 +295,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
               <div
                 className={
                   camera.isLiveFilter && viewMode === 'side-by-side'
-                    ? 'grid grid-cols-2 gap-4 w-full h-full items-center'
+                    ? 'grid grid-cols-2 gap-4 w-full h-full items-center justify-items-center'
                     : 'w-full h-full flex items-center justify-center'
                 }
               >
@@ -304,22 +304,26 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                   className={
                     camera.isLiveFilter && viewMode !== 'side-by-side'
                       ? 'hidden'
-                      : 'relative max-w-full max-h-full flex items-center justify-center'
+                      : 'relative w-full h-full flex items-center justify-center overflow-hidden'
                   }
                 >
-                  <div className="rounded-sm border border-panelBorder overflow-hidden bg-black/5 flex items-center justify-center max-w-full max-h-full">
+                  <div
+                    data-testid="raw-camera-frame"
+                    style={{ aspectRatio: cameraAspectRatio }}
+                    className="relative w-full max-w-full max-h-[calc(100vh-12rem)] aspect-video rounded-sm border border-panelBorder overflow-hidden bg-black/5 flex items-center justify-center"
+                  >
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className={`block max-w-full max-h-[calc(100vh-12rem)] object-contain ${
+                      className={`block w-full h-full object-contain ${
                         camera.isMirrored ? 'scale-x-[-1]' : ''
                       }`}
                     />
-                  </div>
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-white/95 text-[10px] font-mono text-textPrimary border border-panelBorder font-semibold uppercase">
-                    {camera.isLiveFilter ? 'Original Camera' : 'Live Preview'}
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-white/95 text-[10px] font-mono text-textPrimary border border-panelBorder font-semibold uppercase">
+                      {camera.isLiveFilter ? 'Original Camera' : 'Live Preview'}
+                    </div>
                   </div>
                 </div>
 
@@ -328,17 +332,21 @@ export const CenterStage: React.FC<CenterStageProps> = ({
                   className={
                     !camera.isLiveFilter
                       ? 'hidden'
-                      : 'relative max-w-full max-h-full flex items-center justify-center'
+                      : 'relative w-full h-full flex items-center justify-center overflow-hidden'
                   }
                 >
-                  <div className="rounded-sm border border-panelBorder overflow-hidden bg-black/5 flex items-center justify-center max-w-full max-h-full">
+                  <div
+                    data-testid="live-filtered-frame"
+                    style={{ aspectRatio: cameraAspectRatio }}
+                    className="relative w-full max-w-full max-h-[calc(100vh-12rem)] aspect-video rounded-sm border border-panelBorder overflow-hidden bg-black/5 flex items-center justify-center"
+                  >
                     <canvas
                       ref={liveCanvasRef}
-                      className="block max-w-full max-h-[calc(100vh-12rem)] object-contain"
+                      className="block w-full h-full object-contain"
                     />
-                  </div>
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white border border-accent font-semibold uppercase">
-                    Live Filtered
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-sm bg-accent text-[10px] font-mono text-white border border-accent font-semibold uppercase">
+                      Live Filtered
+                    </div>
                   </div>
                 </div>
               </div>
@@ -351,7 +359,7 @@ export const CenterStage: React.FC<CenterStageProps> = ({
               <div className="w-full max-w-xl bg-panel/95 border border-dashed border-panelBorder rounded p-6 space-y-5">
                 {/* Technical Instrument Header Strip */}
                 <div className="flex items-center justify-between border-b border-panelBorder pb-2 text-[10px] font-mono text-mutedText uppercase tracking-wider">
-                  <span></span>
+                  <span>WORKSPACE // INPUT_SOURCE</span>
                   <span>MAX SIZE FILE: 10MB</span>
                 </div>
 
